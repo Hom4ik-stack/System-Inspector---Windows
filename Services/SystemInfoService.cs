@@ -531,7 +531,7 @@ namespace SecurityShield.Services
             var startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
             if (Directory.Exists(startupFolder))
             {
-                foreach (var file in Directory.GetFiles(startupFolder, "*.*")) // Проверяем не только .lnk
+                foreach (var file in Directory.GetFiles(startupFolder, "*.*")) 
                 {
                     startupList.Add(new StartupProgram
                     {
@@ -552,7 +552,6 @@ namespace SecurityShield.Services
 
             try
             {
-                // Запускаем netstat -ano -p TCP для получения PID
                 ProcessStartInfo psi = new ProcessStartInfo("netstat", "-ano -p TCP")
                 {
                     RedirectStandardOutput = true,
@@ -578,7 +577,7 @@ namespace SecurityShield.Services
                         int remotePort = int.Parse(match.Groups[4].Value);
                         int pid = int.Parse(match.Groups[5].Value);
 
-                        // Фильтруем подключения к самому себе (Loopback)
+                    
                         if (IPAddress.TryParse(remoteAddress.Replace("[", "").Replace("]", ""), out IPAddress ip) && IPAddress.IsLoopback(ip))
                         {
                             continue;
@@ -598,11 +597,13 @@ namespace SecurityShield.Services
                                     processName = Process.GetProcessById(pid).ProcessName;
                                     processCache[pid] = processName;
                                 }
-                                catch { /* Процесс мог завершиться */ }
+                                catch { 
+                                
+                                }
                             }
                         }
 
-                        // Получаем понятное описание портов
+               
                         var (portName, portPurpose) = PortDescriptionService.GetPortDescription(remotePort);
 
                         connections.Add(new NetworkConnectionInfo

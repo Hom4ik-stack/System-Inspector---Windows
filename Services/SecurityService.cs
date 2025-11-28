@@ -126,7 +126,6 @@ namespace SecurityShield.Services
 
 
 
-        // 3. Обновление метода DetectSecurityThreats
         private List<SecurityThreat> DetectSecurityThreats()
         {
             var threats = new List<SecurityThreat>();
@@ -163,7 +162,6 @@ namespace SecurityShield.Services
                 string[] lines = File.ReadAllLines(path);
                 int nonCommentLines = lines.Count(l => !l.Trim().StartsWith("#") && !string.IsNullOrWhiteSpace(l));
 
-                // Если больше 5 активных записей - подозрительно (обычно там пусто или localhost)
                 return nonCommentLines > 5;
             }
             catch { return false; }
@@ -253,7 +251,6 @@ namespace SecurityShield.Services
         {
             try
             {
-                // Проверяем настройки SmartScreen для Edge
                 var edgeKey = Registry.CurrentUser.OpenSubKey(
                     @"SOFTWARE\Microsoft\Edge\SmartScreenEnabled");
                 if (edgeKey != null)
@@ -262,7 +259,7 @@ namespace SecurityShield.Services
                     if (edgeValue?.ToString() == "1") return true;
                 }
 
-                // Проверяем настройки SmartScreen для Windows
+              
                 var windowsKey = Registry.CurrentUser.OpenSubKey(
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\AppHost\EnableWebContentEvaluation");
                 if (windowsKey != null)
@@ -271,7 +268,6 @@ namespace SecurityShield.Services
                     if (windowsValue?.ToString() == "1") return true;
                 }
 
-                // Проверяем через PowerShell, если реестр не дал результатов
                 return CheckSmartScreenViaPowerShell();
             }
             catch (Exception ex)
@@ -373,15 +369,15 @@ namespace SecurityShield.Services
                         var productState = product["productState"]?.ToString() ?? "0";
                         var detailedInfo = ParseAntivirusProductState(productName, productState);
 
-                        // Ищем первый активный антивирус
+                        
                         if (detailedInfo.Name != "Не обнаружен" && detailedInfo.IsEnabled)
                         {
                             antivirus = detailedInfo;
-                            // Сохраняем путь для кнопки "Открыть"
+                            
                             _antivirusExePath = product["pathToSignedProductExe"]?.ToString() ?? string.Empty;
                             break;
                         }
-                        // Если не нашли активный, берем первый попавшийся
+                      
                         else if (antivirus.Name == "Не обнаружен")
                         {
                             antivirus = detailedInfo;
@@ -558,7 +554,7 @@ namespace SecurityShield.Services
                 }
                 catch
                 {
-                    // Игнорируем процессы, к которым нет доступа
+                   
                 }
             }
 
@@ -718,7 +714,7 @@ namespace SecurityShield.Services
                     }
                 }
 
-                // Логика для сторонних АВ (если WMI SecurityCenter2 дал дату)
+                
                 using var searcherWSC = new ManagementObjectSearcher(@"root\SecurityCenter2", "SELECT * FROM AntiVirusProduct");
                 foreach (ManagementObject product in searcherWSC.Get())
                 {
@@ -786,25 +782,23 @@ namespace SecurityShield.Services
 
             try
             {
-                // 1. СИСТЕМНЫЕ ПРОВЕРКИ
+               
                 result.SecurityChecks.AddRange(PerformSystemSecurityChecks()); // Обновления, Брандмауэр
 
-                // 2. ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ (Новые)
+             
                 result.SecurityChecks.Add(CheckSmb1Protocol());
                 result.SecurityChecks.Add(CheckRemoteRegistry());
                 result.SecurityChecks.Add(CheckAutoRunPolicies());
 
-                // 3. СЕТЕВЫЕ ПРОВЕРКИ
+                
                 result.SecurityChecks.AddRange(PerformNetworkSecurityChecks()); // Порты
 
-                // 4. ПОЛЬЗОВАТЕЛИ
+           
                 result.SecurityChecks.AddRange(PerformUserSecurityChecks()); // Пароли, Админы
 
-                // 5. АНТИВИРУС
+                
                 result.SecurityChecks.AddRange(PerformApplicationSecurityChecks());
 
-                // 6. ПОИСК УГРОЗ (Threats)
-                // Сюда переносим логику с hosts файлом и критическими уязвимостями
                 result.Threats.AddRange(DetectSecurityThreats());
 
                 CalculateSecurityStatus(result);
@@ -823,7 +817,7 @@ namespace SecurityShield.Services
             bool isSmb1Enabled = false;
             try
             {
-                // Проверка ключа реестра SMB1
+               
                 using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters");
                 if (key != null)
                 {
@@ -846,7 +840,7 @@ namespace SecurityShield.Services
 
         private SecurityCheck CheckRemoteRegistry()
         {
-            // Служба удаленного реестра должна быть отключена на домашних ПК
+        
             string startMode = "Unknown";
             try
             {
@@ -875,13 +869,13 @@ namespace SecurityShield.Services
 
         private SecurityCheck CheckAutoRunPolicies()
         {
-            // Проверка автозапуска с флешек
+         
             bool autorunDisabled = false;
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer");
                 var val = key?.GetValue("NoDriveTypeAutoRun");
-                if (val != null) autorunDisabled = true; // Упрощенно: если ключ есть, какая-то политика применена
+                if (val != null) autorunDisabled = true; 
             }
             catch { }
 
@@ -981,7 +975,7 @@ namespace SecurityShield.Services
         }
 
 
-        // Приватные версии методов для внутреннего использования
+      
         private (bool isEnabled, string level) CheckUACStatusDetailed()
         {
             try
@@ -1181,7 +1175,7 @@ namespace SecurityShield.Services
             {
                 Debug.WriteLine($"Ошибка проверки обновлений Windows: {ex.Message}");
             }
-            // Если WMI или Реестр не сработали
+         
             return (false, 999, "Не удалось проверить");
         }
 
@@ -1331,25 +1325,7 @@ namespace SecurityShield.Services
             return (true, "Настройки по умолчанию");
         }
 
-        private (bool isStrong, string details) CheckPasswordPolicyDetailed()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_UserAccount");
-                var users = searcher.Get().Cast<ManagementObject>();
 
-                var hasPasswordUsers = users.Count(u => u["PasswordRequired"]?.ToString() == "True");
-                var totalUsers = users.Count();
-
-                return (hasPasswordUsers == totalUsers, $"Пользователей с паролями: {hasPasswordUsers}/{totalUsers}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка проверки парольной политики: {ex.Message}");
-            }
-
-            return (true, "Проверка не выполнена");
-        }
 
         private (bool isSecure, string details, string recommendation) CheckUserAccountsDetailed()
         {
@@ -1434,7 +1410,7 @@ namespace SecurityShield.Services
                                 if ((DateTime.Now - installDate).TotalDays > (365 * 4))
                                 {
                                     outdatedCount++;
-                                    // Если это рискованное приложение (браузер, java), считаем критичным
+                                  
                                     if (!hasCritical && riskyApps.Any(app => displayName.ToLower().Contains(app)))
                                     {
                                         hasCritical = true;
@@ -1473,88 +1449,6 @@ namespace SecurityShield.Services
             }
         }
 
-        private (bool isMember, string details) CheckDomainMembership()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    var domain = obj["Domain"]?.ToString();
-                    var partOfDomain = obj["PartOfDomain"]?.ToString() == "True";
-                    var workgroup = obj["Workgroup"]?.ToString();
-
-                    return (partOfDomain,
-                           partOfDomain ?
-                               $"Домен: {domain}" :
-                               $"Рабочая группа: {workgroup}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка проверки членства в домене: {ex.Message}");
-            }
-
-            return (false, "Не удалось определить");
-        }
-
-        private (bool areApplied, string details) CheckDomainPolicies()
-        {
-            try
-            {
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "gpresult",
-                        Arguments = "/r",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        CreateNoWindow = true
-                    }
-                };
-
-                process.Start();
-                var output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                var applied = output.Contains("Примененные групповые политики") ||
-                             output.Contains("Applied Group Policy Objects");
-
-                return (applied, applied ?
-                    "Групповые политики применяются" :
-                    "Групповые политики не применяются");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка проверки политик домена: {ex.Message}");
-                return (false, "Ошибка проверки");
-            }
-        }
-
-        private (bool isSecure, string details) CheckDomainLogin()
-        {
-            try
-            {
-                var identity = WindowsIdentity.GetCurrent();
-                if (identity != null)
-                {
-                    var isDomainAccount = !string.IsNullOrEmpty(identity.Name) && identity.Name.Contains("\\");
-                    return (isDomainAccount,
-                           isDomainAccount ?
-                               "Доменная аутентификация" :
-                               "Локальная аутентификация");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка проверки доменного входа: {ex.Message}");
-            }
-
-            return (true, "Не удалось определить");
-        }
-
-     
 
 
         private List<SecurityThreat> CheckSystemVulnerabilities()
@@ -1883,9 +1777,8 @@ namespace SecurityShield.Services
 
         public void OpenAntivirusUI()
         {
-            // _antivirusExePath и AntivirusInfo.Name заполняются при вызове GetInstalledAntivirus()
-            // который к этому моменту УЖЕ был вызван в MainViewModel
-            var avInfo = GetInstalledAntivirus(); // Просто вызовем его еще раз, чтобы получить имя
+          
+            var avInfo = GetInstalledAntivirus(); 
 
             if (avInfo.Name.ToLower().Contains("defender") || avInfo.Name.ToLower().Contains("защитник"))
             {
@@ -1907,7 +1800,7 @@ namespace SecurityShield.Services
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Не удалось открыть UI антивируса по пути: {ex.Message}");
-                    // Если запуск не удался, переходим к резервному методу
+                   
                 }
             }
 
@@ -1918,45 +1811,43 @@ namespace SecurityShield.Services
         public List<SecurityEvent> SecurityEvents()
         {
             var events = new List<SecurityEvent>();
-            var startTime = DateTime.Now.AddDays(-1); // Ищем события за последние 24 часа
+            var startTime = DateTime.Now.AddDays(-1); 
 
-            // 1. Добавляем события из Защитника Windows (WMI)
+          
             AddDefenderEvents(events);
 
-            // 2. Ищем неудачные входы в систему (Журнал "Security")
-            // ID 4625 = An account failed to log on
+            
             string querySecurity = $"*[System[EventID=4625 and TimeCreated[@SystemTime >= '{startTime.ToUniversalTime():o}']]]";
             AddEventsFromQuery(events, "Security", querySecurity, "Неудачный вход", "Высокая");
 
-            // 3. Ищем сбои приложений (Журнал "Application")
-            // ID 1000 = Application Error (Faulting application)
+   
             string queryApplication = $"*[System[Provider[@Name='Application Error'] and EventID=1000 and Level=2 and TimeCreated[@SystemTime >= '{startTime.ToUniversalTime():o}']]]";
             AddEventsFromQuery(events, "Application", queryApplication, "Сбой приложения", "Средняя");
 
             return events.OrderByDescending(e => e.TimeGenerated).Take(50).ToList();
         }
 
-        // Новый вспомогательный метод, использующий EventLogReader
+    
         private void AddEventsFromQuery(List<SecurityEvent> events, string logName, string query, string eventType, string severity)
         {
             try
             {
                 var eventQuery = new EventLogQuery(logName, PathType.LogName, query)
                 {
-                    ReverseDirection = true // Начинаем с самых новых
+                    ReverseDirection = true
                 };
 
                 using (var reader = new EventLogReader(eventQuery))
                 {
                     EventRecord record;
-                    while ((record = reader.ReadEvent()) != null && events.Count < 50) // Ограничиваем общее число
+                    while ((record = reader.ReadEvent()) != null && events.Count < 50) 
                     {
                         events.Add(new SecurityEvent
                         {
                             TimeGenerated = record.TimeCreated?.ToLocalTime() ?? DateTime.Now,
                             EventType = eventType,
                             Source = record.ProviderName,
-                            Description = record.FormatDescription()?.Split('\n')[0] ?? "Нет описания", // Берем только первую строку
+                            Description = record.FormatDescription()?.Split('\n')[0] ?? "Нет описания", 
                             Severity = severity
                         });
                     }

@@ -248,7 +248,7 @@ namespace SecurityShield.Services
         {
             try
             {
-                // Открываем диспетчер устройств с правами администратора
+                
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "mmc.exe",

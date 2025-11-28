@@ -35,7 +35,7 @@ namespace SecurityShield.ViewModels
         private DispatcherTimer _driveTimer = new DispatcherTimer();
         private DispatcherTimer _timeTimer = new DispatcherTimer();
 
-        // Свойства (ObservableProperty генерирует код, обращаемся к свойствам с большой буквы)
+        // Свойства 
         [ObservableProperty] private SystemInfo _systemInfo = new SystemInfo();
         [ObservableProperty] private string _currentTime = string.Empty;
         [ObservableProperty] private SeriesCollection _cpuSeries = new SeriesCollection();
@@ -126,13 +126,13 @@ namespace SecurityShield.ViewModels
             InitializeTimers();
             InitializeCharts();
 
-            // Подписка на события устройств (из предыдущего улучшения)
+ 
             if (_deviceService is DeviceService ds)
             {
                 ds.DeviceListChanged += (s, e) => _ = LoadDevices(isAutoUpdate: true);
             }
 
-            // Initial Loads - используем fire-and-forget Task.Run
+      
             _ = Task.Run(() => LoadInitialData());
             _ = Task.Run(() => LoadDevices());
             _ = Task.Run(() => LoadDefenderStatus());
@@ -262,7 +262,7 @@ namespace SecurityShield.ViewModels
                     bool success = _systemInfoService.KillProcess(process.Id);
                     if (success)
                     {
-                        // Удаляем из обеих коллекций, на всякий случай
+                     
                         var processToRemove = Processes.FirstOrDefault(p => p.Id == process.Id);
                         if (processToRemove != null) Processes.Remove(processToRemove);
 
@@ -275,7 +275,7 @@ namespace SecurityShield.ViewModels
                             MessageBoxButton.OK,
                             MessageBoxImage.Information);
                         await Task.Delay(1000);
-                        UpdateProcessesData(); // Обновляем основной список
+                        UpdateProcessesData(); 
                     }
                     else
                     {
@@ -441,22 +441,20 @@ namespace SecurityShield.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    // Сравнение списков для выявления новых (для уведомления в статус-бар или лог, но НЕ MessageBox)
+                   
                     var newDevices = currentDevices.Where(d => !Devices.Any(old => old.DeviceID == d.DeviceID)).ToList();
 
 
                     Devices.Clear();
                     foreach (var d in currentDevices) Devices.Add(d);
 
-                    UpdateVulnerableDevices(); // Обновляем список уязвимых
+                    UpdateVulnerableDevices(); 
 
-                    // Если это авто-обновление и нашли новые устройства
                     if (isAutoUpdate && newDevices.Any())
                     {
                         var names = string.Join(", ", newDevices.Select(x => x.Name));
                         DeviceStatus = $"Обнаружено новое устройство: {names}";
 
-                        // Добавляем запись в журнал событий вместо всплывающего окна
                         foreach (var nd in newDevices)
                         {
                             SecurityEvents.Insert(0, new SecurityEvent
@@ -468,7 +466,7 @@ namespace SecurityShield.ViewModels
                                 Severity = nd.IsSafe ? "Информация" : "Внимание"
                             });
 
-                            // Если устройство опасное - добавляем в NewlyConnectedDevices для UI
+                           
                             if (!nd.IsSafe) NewlyConnectedDevices.Add(nd);
                         }
                     }
@@ -657,7 +655,7 @@ namespace SecurityShield.ViewModels
                 DefenderScanStatus = $"Запуск {SelectedScanType}...";
                 var result = await Task.Run(() =>
                     _securityService.StartDefenderScanWithProgress(SelectedScanType));
-                // Имитация прогресса, если реальный прогресс не доступен
+              
                 if (result.Progress == 0)
                 {
                     for (int i = 0; i <= 100; i += 10)
@@ -743,15 +741,12 @@ namespace SecurityShield.ViewModels
                 IsQuickScanInProgress = true;
                 QuickScanStatus = "Анализ конфигурации системы...";
 
-                // 1. Выполняем сканирование в фоне
                 var scanTask = Task.Run(() => _securityService.PerformComprehensiveSecurityScan());
 
-                // 2. Параллельно (или после) загружаем логи событий, чтобы они не пропали
-                // Важно: Не очищаем SecurityEvents до получения новых данных!
 
                 var result = await scanTask;
 
-                // 3. Получаем свежие события
+       
                 QuickScanStatus = "Анализ журнала событий...";
                 var freshEvents = await Task.Run(() => _securityService.SecurityEvents());
 
@@ -777,11 +772,10 @@ namespace SecurityShield.ViewModels
                         foreach (var t in result.Threats) Threats.Add(t);
                     }
 
-                    // ОБНОВЛЕНИЕ ЖУРНАЛА СОБЫТИЙ (Fix empty log bug)
                     SecurityEvents.Clear();
                     foreach (var evt in freshEvents) SecurityEvents.Add(evt);
 
-                    // Обновляем фильтр (триггерим UI)
+           
                     OnPropertyChanged(nameof(DisplayedSecurityChecks));
 
                     // Статус
@@ -941,7 +935,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                // Сообщение об ошибке, если не удалось запустить
+             
                 MessageBox.Show(
                     $"Не удалось запустить программу антивируса: {ex.Message}\n\n" +
                     "Будет открыт стандартный центр 'Безопасность Windows'.",
@@ -1081,7 +1075,6 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception)
             {
-                // Резервный вариант для старых систем - папка автозагрузки
                 try
                 {
                     Process.Start("shell:startup");

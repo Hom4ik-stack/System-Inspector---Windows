@@ -146,7 +146,7 @@
         </Border>
 
         <!-- Вкладки -->
-        <TabControl Grid.Row="1" Margin="10">
+        <TabControl Grid.Row="1" Margin="10,8,10,12">
             <!-- Вкладка 1: О системе -->
             <TabItem Header="О системе">
                 <ScrollViewer>
@@ -515,7 +515,7 @@ FontWeight="SemiBold" Foreground="Blue"/>
                                     <DataGridTextColumn Header="Тип" Binding="{Binding Category}" Width="1.2*"/>
                                     <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer}" Width="1.5*"/>
                                     <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1*"/>
-                        
+
                                     <DataGridTemplateColumn Header="Действия" Width="2*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -544,7 +544,7 @@ FontWeight="SemiBold" Foreground="Blue"/>
                         </TabItem>
 
 
-                 <TabItem Header="  🌐   Сетевые подключения (Netstat)">
+                        <TabItem Header="  🌐   Сетевые подключения (Netstat)">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -578,7 +578,7 @@ FontWeight="SemiBold" Foreground="Blue"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
-                        </TabItem>  
+                        </TabItem>
 
                     </TabControl>
                 </Grid>
@@ -765,8 +765,8 @@ ScrollViewer.VerticalScrollBarVisibility="Auto">
 Margin="10" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="Blue"/>
                         </Grid>
                     </GroupBox>
-                    <GroupBox Grid.Row="2" Header="🔍 Результаты проверок безопасности" Margin="10,5,10,77" Grid.RowSpan="2">
-                        <Grid>
+                    <GroupBox Grid.Row="2" Header="🔍 Результаты проверок безопасности" Margin="10,9,10,73" Grid.RowSpan="2">
+                        <Grid Height="156">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
@@ -785,11 +785,11 @@ Margin="10" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="Blue"/>
                          Margin="5,0"/>
                             </StackPanel>
 
-                            <DataGrid Grid.Row="1" 
+                            <DataGrid 
                   ItemsSource="{Binding DisplayedSecurityChecks}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
-                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                  ScrollViewer.VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="0,0,0,-7">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Проверка" Binding="{Binding CheckName}" Width="2*"/>
                                     <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="1*"/>
@@ -818,12 +818,12 @@ Margin="10" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="Blue"/>
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Grid.Row="3" Header=" 🚨  Обнаруженные угрозы и уязвимости" Margin="10,61,10,5" Grid.RowSpan="2">
+                    <GroupBox Grid.Row="3" Header=" 🚨  Обнаруженные угрозы и уязвимости" Margin="10,65,10,5" Grid.RowSpan="2">
                         <DataGrid ItemsSource="{Binding SecurityScanResult.Threats}"
 AutoGenerateColumns="False"
 IsReadOnly="True"
 ScrollViewer.VerticalScrollBarVisibility="Auto"
-VirtualizingPanel.IsVirtualizing="True" Height="174">
+VirtualizingPanel.IsVirtualizing="True" Height="175">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Угроза" Binding="{Binding Name}" Width="2*"/>
                                 <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="1*"/>

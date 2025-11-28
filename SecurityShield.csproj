@@ -10,6 +10,10 @@
 		<DebugType>pdbonly</DebugType>
 		<DebugSymbols>true</DebugSymbols>
 		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+		<AssemblyName>SecurityShield</AssemblyName>
+		<AssemblyTitle>System Inspector</AssemblyTitle>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<ApplicationIcon>computer_114463.ico</ApplicationIcon>
 
 	</PropertyGroup>
 
@@ -23,6 +27,10 @@
 			<Isolated>false</Isolated>
 			<EmbedInteropTypes>true</EmbedInteropTypes>
 		</COMReference>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="computer_114463.ico" />
 	</ItemGroup>
 
 

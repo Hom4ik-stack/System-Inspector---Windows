@@ -21,26 +21,12 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SecurityShield.Services
 {
-
+    
     public class SecurityService : ISecurityService
     {
+
         private SecurityScanResult _lastScanResult;
         private string _antivirusExePath = string.Empty;
-        private readonly Dictionary<string, string> _antivirusApiKeys = new Dictionary<string, string>();
-
-        public SecurityService()
-        {
-            InitializeAntivirusApiKeys();
-        }
-
-        private void InitializeAntivirusApiKeys()
-        {
-            _antivirusApiKeys["Kaspersky"] = "KASPERSKY_API_KEY";
-            _antivirusApiKeys["ESET"] = "ESET_API_KEY";
-            _antivirusApiKeys["Norton"] = "NORTON_API_KEY";
-            _antivirusApiKeys["McAfee"] = "MCAFEE_API_KEY";
-            _antivirusApiKeys["Bitdefender"] = "BITDEFENDER_API_KEY";
-        }
 
 
         public List<SecurityVulnerability> PerformComprehensiveSecurityAudit()
@@ -124,34 +110,39 @@ namespace SecurityShield.Services
         }
 
 
-
-
         private List<SecurityThreat> DetectSecurityThreats()
         {
             var threats = new List<SecurityThreat>();
-
-            // Добавляем сетевые угрозы
             threats.AddRange(DetectNetworkThreats());
-
-            // Добавляем угрозы обновлений и UAC (из старого кода)
             threats.AddRange(CheckSystemVulnerabilities());
 
-            // Проверка Hosts файла
             if (CheckHostsFileModified())
             {
                 threats.Add(new SecurityThreat
                 {
-                    Name = "Файл Hosts изменен",
+                    Name = "Файл HOSTS модифицирован",
                     Type = "Системная угроза",
                     Severity = "Высокая",
-                    Description = "В файле C:\\Windows\\System32\\drivers\\etc\\hosts найдены подозрительные записи.",
-                    Recommendation = "Восстановите файл hosts к состоянию по умолчанию."
+                    Description = "Найдены нестандартные перенаправления в файле hosts.",
+                    Recommendation = "Проверьте файл C:\\Windows\\System32\\drivers\\etc\\hosts"
+                });
+            }
+
+            var tempSize = GetTempFolderSize();
+            if (tempSize > 1024 * 1024 * 500) // > 500 MB
+            {
+                threats.Add(new SecurityThreat
+                {
+                    Name = "Много временных файлов",
+                    Type = "Мусор",
+                    Severity = "Низкая",
+                    Description = $"В папке Temp скопилось {(tempSize / 1024 / 1024)} MB.",
+                    Recommendation = "Рекомендуется очистка диска."
                 });
             }
 
             return threats;
         }
-
         private bool CheckHostsFileModified()
         {
             try
@@ -160,11 +151,37 @@ namespace SecurityShield.Services
                 if (!File.Exists(path)) return false;
 
                 string[] lines = File.ReadAllLines(path);
-                int nonCommentLines = lines.Count(l => !l.Trim().StartsWith("#") && !string.IsNullOrWhiteSpace(l));
+                int suspiciousLines = 0;
 
-                return nonCommentLines > 5;
+                foreach (var line in lines)
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
+
+                    // Разрешаем только локалхост
+                    if (!trimmed.Contains("127.0.0.1") && !trimmed.Contains("::1"))
+                    {
+                        suspiciousLines++;
+                    }
+                }
+
+                return suspiciousLines > 0;
             }
             catch { return false; }
+        }
+        public long GetTempFolderSize()
+        {
+            try
+            {
+                string tempPath = Path.GetTempPath();
+                if (Directory.Exists(tempPath))
+                {
+                    return Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories)
+                                    .Sum(t => new FileInfo(t).Length);
+                }
+            }
+            catch { }
+            return 0;
         }
         public string GetWindowsVersionStatus()
         {
@@ -655,11 +672,7 @@ namespace SecurityShield.Services
         {
             try
             {
-                if (_antivirusApiKeys.ContainsKey(GetAntivirusVendor(antivirusName)))
-                {
-                    return SimulateAntivirusApiCheck(antivirusName);
-                }
-
+                // Пробуем получить статус через WMI SecurityCenter2
                 using var searcher = new ManagementObjectSearcher(@"root\SecurityCenter2", "SELECT * FROM AntiVirusProduct");
                 foreach (ManagementObject product in searcher.Get())
                 {
@@ -669,7 +682,7 @@ namespace SecurityShield.Services
                         var state = product["productState"]?.ToString() ?? "0";
                         if (uint.TryParse(state, out uint stateValue))
                         {
-                            return (stateValue & 0x1000) == 0;
+                            return true;
                         }
                     }
                 }
@@ -679,19 +692,7 @@ namespace SecurityShield.Services
                 Debug.WriteLine($"Ошибка проверки обновлений антивируса: {ex.Message}");
             }
 
-            return true;
-        }
-
-        private bool SimulateAntivirusApiCheck(string antivirusName)
-        {
-            var vendor = GetAntivirusVendor(antivirusName);
-            if (_antivirusApiKeys.ContainsKey(vendor))
-            {
-                var apiKey = _antivirusApiKeys[vendor];
-                Debug.WriteLine($"Проверка обновлений через API {vendor} с ключом: {apiKey.Substring(0, 5)}...");
-                return new Random().Next(0, 100) > 30;
-            }
-
+          
             return true;
         }
 

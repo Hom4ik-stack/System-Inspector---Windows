@@ -7,8 +7,8 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Net;
+using System.Threading.Tasks;
 using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
@@ -22,89 +22,75 @@ namespace SecurityShield.Services
         private List<string> _systemProcesses;
         private List<string> _allowedUserProcesses;
 
+       
+        private readonly Dictionary<int, (TimeSpan TotalProcessorTime, DateTime Time)> _prevProcessTimes
+            = new Dictionary<int, (TimeSpan, DateTime)>();
+
         public SystemInfoService()
+        {
+            InitializeCpuCounter();
+            InitializeProcessLists();
+        }
+
+
+        private void InitializeCpuCounter()
         {
             try
             {
                 _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-                _cpuCounter.NextValue();
+                _cpuCounter.NextValue(); 
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка инициализации PerformanceCounter: {ex.Message}");
+                Debug.WriteLine($"Ошибка PerformanceCounter: {ex.Message}");
             }
-            InitializeProcessLists();
         }
-        
-
-    
 
         public SystemInfo GetDetailedSystemInfo()
         {
-            var info = new SystemInfo();
+            var info = new SystemInfo
+            {
+                OSVersion = Environment.OSVersion.VersionString,
+                ComputerName = Environment.MachineName,
+                UserName = Environment.UserName,
+                Domain = Environment.UserDomainName
+            };
+
             try
             {
-                info.OSVersion = Environment.OSVersion.VersionString;
-                info.Build = Environment.OSVersion.Version.Build.ToString();
-                info.ComputerName = Environment.MachineName;
-                info.UserName = Environment.UserName;
-                info.Domain = Environment.UserDomainName;
-
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
+                // Используем быстрые запросы WMI
+                using var searcherProc = new ManagementObjectSearcher("SELECT Name, NumberOfCores FROM Win32_Processor");
+                foreach (ManagementObject obj in searcherProc.Get())
                 {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        info.Processor = $"{obj["Name"]} ({obj["NumberOfCores"]} ядер)";
-                        break;
-                    }
+                    info.Processor = $"{obj["Name"]} ({obj["NumberOfCores"]} ядер)";
+                    break;
                 }
 
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem"))
+                using var searcherMem = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
+                foreach (ManagementObject obj in searcherMem.Get())
                 {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        var totalBytes = Convert.ToUInt64(obj["TotalPhysicalMemory"]);
+                    if (ulong.TryParse(obj["TotalPhysicalMemory"]?.ToString(), out ulong totalBytes))
                         info.TotalRAM = $"{(totalBytes / 1024.0 / 1024.0 / 1024.0):F1} GB";
-                        break;
-                    }
+                    break;
                 }
 
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
-                {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        info.Motherboard = $"{obj["Manufacturer"]} {obj["Product"]}";
-                        break;
-                    }
-                }
+                // Инфо о версии
+                info.Build = Environment.OSVersion.Version.Build.ToString();
+                info.UpdateStatus = CheckWindowsVersionStatus();
 
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
-                {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        info.BIOS = $"{obj["Manufacturer"]} {obj["SMBIOSBIOSVersion"]}";
-                        break;
-                    }
-                }
-
-                var adapters = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var adapter in adapters.Where(a => a.OperationalStatus == OperationalStatus.Up))
+                // Сетевые адаптеры
+                foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces().Where(a => a.OperationalStatus == OperationalStatus.Up))
                 {
                     info.NetworkAdapters.Add($"{adapter.Name} ({adapter.NetworkInterfaceType})");
                 }
-
-                info.UpdateStatus = CheckWindowsVersionStatus();
-
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка получения системной информации: {ex.Message}");
+                Debug.WriteLine($"Ошибка SystemInfo: {ex.Message}");
             }
-
             return info;
         }
-
-      private string CheckWindowsVersionStatus()
+        private string CheckWindowsVersionStatus()
         {
             try
             {
@@ -130,7 +116,7 @@ namespace SecurityShield.Services
 
             return "Не удалось определить статус версии";
         }
-
+        
         private string AnalyzeWindowsVersion(string version, string caption, int currentBuild)
         {
             // Определяем базовую версию Windows
@@ -216,71 +202,76 @@ namespace SecurityShield.Services
         public List<ProcessInfo> GetRunningProcesses()
         {
             var processes = new List<ProcessInfo>();
-            try
+            var currentProcesses = Process.GetProcesses();
+            var now = DateTime.Now;
+
+            foreach (var process in currentProcesses)
             {
-                var allProcesses = Process.GetProcesses();
-                foreach (var process in allProcesses)
+                try
                 {
-                    try
+                    double cpuUsage = 0;
+
+                  
+                    if (_prevProcessTimes.TryGetValue(process.Id, out var prevData))
                     {
-                        var processInfo = new ProcessInfo
+                        var curTotalProcTime = process.TotalProcessorTime;
+                        var timeDiff = (now - prevData.Time).TotalMilliseconds;
+
+                        if (timeDiff > 0)
                         {
-                            Name = process.ProcessName,
-                            Id = process.Id,
-                            MemoryMB = process.WorkingSet64 / 1024.0 / 1024.0,
-                            Cpu = GetProcessCpuUsage(process),
-                            ProcessPath = GetProcessPathSafe(process),
-                            WindowTitle = process.MainWindowTitle ?? string.Empty
-                        };
-                        processInfo.IsUserProcess = processInfo.CheckIsUserProcess();
-                        processes.Add(processInfo);
+                            var cpuTimeDiff = (curTotalProcTime - prevData.TotalProcessorTime).TotalMilliseconds;
+                          
+                            cpuUsage = (cpuTimeDiff / (timeDiff * Environment.ProcessorCount)) * 100;
+                        }
+
+                        _prevProcessTimes[process.Id] = (curTotalProcTime, now);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Debug.WriteLine($"Не удалось получить информацию о процессе {process.ProcessName}: {ex.Message}");
+                       
+                        _prevProcessTimes[process.Id] = (process.TotalProcessorTime, now);
                     }
+
+               
+                    var pInfo = new ProcessInfo
+                    {
+                        Name = process.ProcessName,
+                        Id = process.Id,
+                      
+                        MemoryMB = 0,
+                        Cpu = Math.Round(cpuUsage, 1),
+                        ProcessPath = GetProcessPathSafe(process),
+                        WindowTitle = process.MainWindowTitle
+                    };
+
+                    try { pInfo.MemoryMB = process.WorkingSet64 / 1024.0 / 1024.0; } catch { }
+
+                    pInfo.IsUserProcess = pInfo.CheckIsUserProcess();
+                    processes.Add(pInfo);
+                }
+                catch (Exception)
+                {
+                    continue;
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка получения процессов: {ex.Message}");
-            }
-            return processes.OrderByDescending(p => p.MemoryMB).ToList();
-        }
 
-        private double GetProcessCpuUsage(Process process)
-        {
-            try
-            {
-                var startTime = DateTime.Now;
-                var startCpuUsage = process.TotalProcessorTime;
-                System.Threading.Thread.Sleep(100);
-                var endTime = DateTime.Now;
-                var endCpuUsage = process.TotalProcessorTime;
-                var cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
-                var totalMsPassed = (endTime - startTime).TotalMilliseconds;
-                var cpuUsage = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed) * 100;
-                return Math.Round(cpuUsage, 1);
-            }
-            catch
-            {
-                return 0;
-            }
+      
+            var currentIds = new HashSet<int>(currentProcesses.Select(p => p.Id));
+            var keysToRemove = _prevProcessTimes.Keys.Where(k => !currentIds.Contains(k)).ToList();
+            foreach (var key in keysToRemove) _prevProcessTimes.Remove(key);
+
+            return processes.OrderByDescending(p => p.MemoryMB).ToList();
         }
 
         private string GetProcessPathSafe(Process process)
         {
             try
             {
-                return process.MainModule?.FileName ?? "Нет доступа";
+                return process.MainModule?.FileName ?? "Системный/Защищенный";
             }
-            catch (System.ComponentModel.Win32Exception)
+            catch
             {
-                return "Требуются права администратора";
-            }
-            catch (Exception ex)
-            {
-                return $"Ошибка доступа: {ex.Message}";
+                return "Нет доступа";
             }
         }
 
@@ -548,95 +539,114 @@ namespace SecurityShield.Services
         public List<NetworkConnectionInfo> GetActiveNetworkConnections()
         {
             var connections = new List<NetworkConnectionInfo>();
-            var processCache = new Dictionary<int, string>();
-
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo("netstat", "-ano -p TCP")
+                // Получаем список соединений через WinAPI (функция ниже)
+                var tcpConnections = GetAllTcpConnections();
+
+                foreach (var tcp in tcpConnections)
                 {
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                    // Игнорируем локальные (loopback) соединения, если нужно
+                    if (IPAddress.IsLoopback(tcp.LocalAddress) && IPAddress.IsLoopback(tcp.RemoteAddress))
+                        continue;
 
-                using (var process = Process.Start(psi))
-                {
-                    if (process == null) return connections;
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-
-                
-                    var regex = new Regex(@"^\s*TCP\s+([\d\.:\[\]]+):(\d+)\s+([\d\.:\[\]]+):(\d+)\s+ESTABLISHED\s+(\d+)\s*$", RegexOptions.Multiline);
-
-                    foreach (Match match in regex.Matches(output))
+                    string processName = "N/A";
+                    try
                     {
-                        string localAddress = match.Groups[1].Value;
-                        int localPort = int.Parse(match.Groups[2].Value);
-                        string remoteAddress = match.Groups[3].Value;
-                        int remotePort = int.Parse(match.Groups[4].Value);
-                        int pid = int.Parse(match.Groups[5].Value);
-
-                    
-                        if (IPAddress.TryParse(remoteAddress.Replace("[", "").Replace("]", ""), out IPAddress ip) && IPAddress.IsLoopback(ip))
+                        if (tcp.OwningPid > 0)
                         {
-                            continue;
+                            processName = Process.GetProcessById((int)tcp.OwningPid).ProcessName;
                         }
-
-                        string processName = "N/A";
-                        if (pid > 0)
-                        {
-                            if (processCache.ContainsKey(pid))
-                            {
-                                processName = processCache[pid];
-                            }
-                            else
-                            {
-                                try
-                                {
-                                    processName = Process.GetProcessById(pid).ProcessName;
-                                    processCache[pid] = processName;
-                                }
-                                catch { 
-                                
-                                }
-                            }
-                        }
-
-               
-                        var (portName, portPurpose) = PortDescriptionService.GetPortDescription(remotePort);
-
-                        connections.Add(new NetworkConnectionInfo
-                        {
-                            
-                           _localAddress = localAddress,
-                            _localPort = localPort,
-                            _remoteAddress = remoteAddress,
-                            _remotePort = remotePort,
-                            _state = "ESTABLISHED",
-                            _processId = pid,
-                            _processName = processName,
-                            _remotePortDescription = $"{remotePort} ({portName})",
-                            _connectionPurpose = portPurpose,
-                            _localPortDescription = PortDescriptionService.GetLocalPortDescription(localPort)
-                        });
                     }
+                    catch { }
+
+                    var (portName, portPurpose) = PortDescriptionService.GetPortDescription(tcp.RemotePort);
+
+                    connections.Add(new NetworkConnectionInfo
+                    {
+                        _localAddress = tcp.LocalAddress.ToString(),
+                        _localPort = tcp.LocalPort,
+                        _remoteAddress = tcp.RemoteAddress.ToString(),
+                        _remotePort = tcp.RemotePort,
+                        _state = tcp.State.ToString(),
+                        _processId = (int)tcp.OwningPid,
+                        _processName = processName,
+                        _remotePortDescription = $"{tcp.RemotePort} ({portName})",
+                        _connectionPurpose = portPurpose,
+                        _localPortDescription = PortDescriptionService.GetLocalPortDescription(tcp.LocalPort)
+                    });
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка получения сетевых подключений (netstat): {ex.Message}");
+                Debug.WriteLine($"Ошибка получения сетевых подключений: {ex.Message}");
             }
             return connections;
         }
 
+        private List<TcpConnectionInfo> GetAllTcpConnections()
+        {
+            var table = new List<TcpConnectionInfo>();
+            int afInet = 2; // IPv4
+            int buffSize = 0;
+
+            // 1. Узнаем необходимый размер буфера
+            uint ret = GetExtendedTcpTable(IntPtr.Zero, ref buffSize, true, afInet, (int)TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL, 0);
+
+            IntPtr buffTable = Marshal.AllocHGlobal(buffSize);
+            try
+            {
+                // 2. Получаем данные
+                ret = GetExtendedTcpTable(buffTable, ref buffSize, true, afInet, (int)TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL, 0);
+                if (ret != 0) return table;
+
+                // 3. Читаем количество записей (первые 4 байта)
+                int tabNumEntries = Marshal.ReadInt32(buffTable);
+                IntPtr rowPtr = (IntPtr)((long)buffTable + 4);
+
+                for (int i = 0; i < tabNumEntries; i++)
+                {
+                    // Маршалинг структуры
+                    MIB_TCPROW_OWNER_PID tcpRow = Marshal.PtrToStructure<MIB_TCPROW_OWNER_PID>(rowPtr);
+
+                    table.Add(new TcpConnectionInfo
+                    {
+                        LocalAddress = new IPAddress(BitConverter.GetBytes(tcpRow.dwLocalAddr)),
+                        LocalPort = (ushort)IPAddress.NetworkToHostOrder((short)tcpRow.dwLocalPort),
+                        RemoteAddress = new IPAddress(BitConverter.GetBytes(tcpRow.dwRemoteAddr)),
+                        RemotePort = (ushort)IPAddress.NetworkToHostOrder((short)tcpRow.dwRemotePort),
+                        State = (TcpState)tcpRow.dwState,
+                        OwningPid = tcpRow.dwOwningPid
+                    });
+
+                    // Сдвигаем указатель на размер структуры
+                    rowPtr = (IntPtr)((long)rowPtr + Marshal.SizeOf(typeof(MIB_TCPROW_OWNER_PID)));
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffTable);
+            }
+            return table;
+        }
+        private class TcpConnectionInfo
+        {
+            public IPAddress LocalAddress { get; set; }
+            public ushort LocalPort { get; set; }
+            public IPAddress RemoteAddress { get; set; }
+            public ushort RemotePort { get; set; }
+            public TcpState State { get; set; }
+            public uint OwningPid { get; set; }
+        }
         #region Network P/Invoke Structs
 
-        // Структуры для вызова GetExtendedTcpTable
+
         private const int AF_INET = 2; // IPv4
 
+  
+
         [StructLayout(LayoutKind.Sequential)]
-        private struct MIB_TCPROW_OWNER_PID
+        public struct MIB_TCPROW_OWNER_PID
         {
             public uint dwState;
             public uint dwLocalAddr;
@@ -646,15 +656,6 @@ namespace SecurityShield.Services
             public uint dwOwningPid;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MIB_TCPTABLE_OWNER_PID
-        {
-            public uint dwNumEntries;
-            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct, SizeConst = 1)]
-            public MIB_TCPROW_OWNER_PID[] table;
-        }
-
-        // Импорт функции API
         [DllImport("iphlpapi.dll", SetLastError = true)]
         private static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int pdwSize, bool bOrder, int ulAf, int TableClass, uint Reserved);
 

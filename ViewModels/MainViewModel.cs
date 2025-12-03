@@ -96,8 +96,8 @@ namespace SecurityShield.ViewModels
 
                 return CurrentSecurityFilter switch
                 {
-                    SecurityFilterType.Risks => SecurityChecks.Where(c => !c.Status.Contains("ОК") && !c.Status.Contains("Защищено")),
-                    SecurityFilterType.Safe => SecurityChecks.Where(c => c.Status.Contains("ОК") || c.Status.Contains("Защищено")),
+                    SecurityFilterType.Risks => SecurityChecks.Where(c => !c.Status.Contains("OK") && !c.Status.Contains("Защищено")),
+                    SecurityFilterType.Safe => SecurityChecks.Where(c => c.Status.Contains("OK") || c.Status.Contains("Защищено")),
                     _ => SecurityChecks
                 };
             }
@@ -480,7 +480,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Device Load Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка загрузки устройства: {ex.Message}");
             }
         }
 
@@ -640,7 +640,7 @@ namespace SecurityShield.ViewModels
             {
                 ScanStatus = "Ошибка проверки безопасности";
                 IsScanning = false;
-                Debug.WriteLine($"ScanSecurity Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка безопасности сканирования: {ex.Message}");
             }
         }
         [RelayCommand]
@@ -709,7 +709,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"LoadDefenderStatus Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка загрузки статуса защитника: {ex.Message}");
             }
         }
         [RelayCommand]
@@ -728,7 +728,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"LoadAntivirusInfo Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка загрузки антивируса: {ex.Message}");
             }
         }
         [RelayCommand]
@@ -758,10 +758,10 @@ namespace SecurityShield.ViewModels
                     SecurityChecks.Clear();
                     if (result.SecurityChecks != null)
                     {
-                        // Сортируем: Сначала Риски, потом Внимание, потом ОК
+                       
                         var sortedChecks = result.SecurityChecks
                             .OrderByDescending(c => c.IsCritical)
-                            .ThenBy(c => c.Status.Contains("ОК"));
+                            .ThenBy(c => c.Status.Contains("OK"));
 
                         foreach (var check in sortedChecks) SecurityChecks.Add(check);
                     }
@@ -837,7 +837,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"UpdateProcessesImmediately Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка немедленного обновления процесса: {ex.Message}");
             }
         }
         [RelayCommand]
@@ -860,7 +860,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"LoadSecurityEvents Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка загрузки событий безопасности: {ex.Message}");
             }
         }
         [RelayCommand]

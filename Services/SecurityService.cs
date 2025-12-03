@@ -34,8 +34,8 @@ namespace SecurityShield.Services
             var result = PerformComprehensiveSecurityScan();
             var vulnerabilities = new List<SecurityVulnerability>();
 
-            // Преобразуем SecurityCheck в SecurityVulnerability для проблемных проверок
-            foreach (var check in result.SecurityChecks.Where(c => !c.Status.Contains("ОК")))
+           
+            foreach (var check in result.SecurityChecks.Where(c => !c.Status.Contains("OK")))
             {
                 vulnerabilities.Add(new SecurityVulnerability
                 {
@@ -807,7 +807,7 @@ namespace SecurityShield.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Scan Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка сканирования: {ex.Message}");
                 result.OverallStatus = "Ошибка сканирования";
             }
 
@@ -832,7 +832,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Протокол SMBv1",
                 Category = "Сетевая безопасность",
-                Status = isSmb1Enabled ? "КРИТИЧЕСКИЙ РИСК" : "ОК",
+                Status = isSmb1Enabled ? "КРИТИЧЕСКИЙ РИСК" : "OK",
                 IsCritical = isSmb1Enabled,
                 Details = isSmb1Enabled ? "Устаревший протокол включен (риск WannaCry)" : "SMBv1 отключен",
                 Recommendation = isSmb1Enabled ? "Отключите компонент SMB1.0/CIFS в компонентах Windows" : "Действий не требуется"
@@ -861,7 +861,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Удаленный реестр",
                 Category = "Службы",
-                Status = isRisk ? "ВНИМАНИЕ" : "ОК",
+                Status = isRisk ? "ВНИМАНИЕ" : "OK",
                 IsCritical = false,
                 Details = $"Режим запуска: {startMode}",
                 Recommendation = isRisk ? "Отключите службу Удаленного реестра" : "Служба настроена верно"
@@ -884,7 +884,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Автозапуск носителей",
                 Category = "Система",
-                Status = autorunDisabled ? "ОК" : "РИСК",
+                Status = autorunDisabled ? "OK" : "РИСК",
                 IsCritical = false,
                 Details = autorunDisabled ? "Автозапуск ограничен политиками" : "Автозапуск разрешен",
                 Recommendation = autorunDisabled ? "" : "Отключите автозапуск для защиты от USB-вирусов"
@@ -900,7 +900,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Обновления Windows",
                 Category = "Система",
-                Status = updateStatus.IsUpToDate ? "ОК - Система обновлена" : "КРИТИЧЕСКИЙ РИСК - Требуются обновления",
+                Status = updateStatus.IsUpToDate ? "OK" : "КРИТИЧЕСКИЙ РИСК - Требуются обновления",
                 Details = updateStatus.IsUpToDate ?
                     $"Последнее обновление: {updateStatus.LastUpdateDate}" :
                     $"Дней без обновлений: {updateStatus.DaysSinceLastUpdate}",
@@ -913,7 +913,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Контроль учетных записей (UAC)",
                 Category = "Безопасность",
-                Status = uacStatus.isEnabled ? "ОК - UAC включен" : "КРИТИЧЕСКИЙ РИСК - UAC отключен",
+                Status = uacStatus.isEnabled ? "OK" : "КРИТИЧЕСКИЙ РИСК - UAC отключен",
                 Details = uacStatus.isEnabled ?
                     $"Уровень UAC: {uacStatus.level}" :
                     "Система уязвима для несанкционированного доступа",
@@ -927,7 +927,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Брандмауэр Windows",
                 Category = "Сеть",
-                Status = CheckFirewallStatus() ? "ОК - Брандмауэр активен" : "КРИТИЧЕСКИЙ РИСК - Брандмауэр отключен",
+                Status = CheckFirewallStatus() ? "OK" : "КРИТИЧЕСКИЙ РИСК - Брандмауэр отключен",
                 Details = CheckFirewallStatus() ?
                     "Сетевой экран защищает систему" :
                     "Система открыта для сетевых атак",
@@ -940,7 +940,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Шифрование дисков BitLocker",
                 Category = "Данные",
-                Status = bitlockerStatus.isEnabled ? "ОК - Диски защищены" : "ВНИМАНИЕ - Шифрование не используется",
+                Status = bitlockerStatus.isEnabled ? "OK" : "ВНИМАНИЕ - Шифрование не используется",
                 Details = bitlockerStatus.isEnabled ?
                     $"Статус: {bitlockerStatus.status}" :
                     "Данные могут быть доступны при физическом доступе",
@@ -954,7 +954,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Предотвращение выполнения данных (DEP)",
                 Category = "Память",
-                Status = CheckDEPStatus() ? "ОК - DEP активен" : "РИСК - DEP отключен",
+                Status = CheckDEPStatus() ? "OK" : "РИСК - DEP отключен",
                 Details = CheckDEPStatus() ?
                     "Защита от атак на память включена" :
                     "Система уязвима для эксплойтов памяти",
@@ -966,7 +966,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Удаленный рабочий стол (RDP)",
                 Category = "Сеть",
-                Status = CheckRDPStatus() ? "РИСК - RDP включен" : "ОК - RDP отключен",
+                Status = CheckRDPStatus() ? "РИСК - RDP включен" : "OK",
                 Details = CheckRDPStatus() ? "Включен удаленный доступ к рабочему столу" : "Удаленный доступ отключен",
                 Recommendation = CheckRDPStatus() ? "Отключите RDP, если он не используется" : "RDP отключен, это безопасно",
                 IsCritical = CheckRDPStatus()
@@ -1045,7 +1045,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Открытые сетевые порты",
                 Category = "Сеть",
-                Status = !riskyPorts.Any() ? "ОК - Нет рискованных портов" : "ВНИМАНИЕ - Обнаружены рискованные порты",
+                Status = !riskyPorts.Any() ? "OK" : "ВНИМАНИЕ - Обнаружены рискованные порты",
                 Details = portDetails,
                 Recommendation = riskyPorts.Any() ? "Закройте неиспользуемые рискованные порты" : "Регулярно проверяйте открытые порты",
                 IsCritical = riskyPorts.Any()
@@ -1055,7 +1055,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Сетевые адаптеры",
                 Category = "Сеть",
-                Status = "ОК - Адаптеры настроены",
+                Status = "OK",
                 Details = networkAdapters,
                 Recommendation = "Регулярно обновляйте драйверы сетевых адаптеров",
                 IsCritical = false
@@ -1066,7 +1066,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "DNS настройки",
                 Category = "Сеть",
-                Status = dnsStatus.isSecure ? "ОК - DNS защищены" : "ВНИМАНИЕ - Используются ненадежные DNS",
+                Status = dnsStatus.isSecure ? "OK" : "ВНИМАНИЕ - Используются ненадежные DNS",
                 Details = dnsStatus.details,
                 Recommendation = dnsStatus.isSecure ? "Поддерживайте текущие настройки" : "Используйте надежные DNS-серверы",
                 IsCritical = false
@@ -1085,7 +1085,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Учетные записи",
                 Category = "Пользователи",
-                Status = accountCheck.isSecure ? "ОК - Учетные записи защищены" : "РИСК - Найдены проблемы",
+                Status = accountCheck.isSecure ? "OK" : "РИСК - Найдены проблемы",
                 Details = accountCheck.details,
                 Recommendation = accountCheck.recommendation,
                 IsCritical = !accountCheck.isSecure
@@ -1096,7 +1096,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Права администратора",
                 Category = "Пользователи",
-                Status = adminCheck.isOptimal ? "ОК - Права настроены" : "ВНИМАНИЕ - Избыточные права",
+                Status = adminCheck.isOptimal ? "OK" : "ВНИМАНИЕ - Избыточные права",
                 Details = adminCheck.details,
                 Recommendation = adminCheck.recommendation,
                 IsCritical = false
@@ -1114,7 +1114,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Антивирусная защита",
                 Category = "Приложения",
-                Status = antivirus.IsEnabled ? "ОК - Антивирус активен" : "КРИТИЧЕСКИЙ РИСК - Антивирус неактивен",
+                Status = antivirus.IsEnabled ? "OK" : "КРИТИЧЕСКИЙ РИСК - Антивирус неактивен",
                 Details = $"{antivirus.Name} ({antivirus.Vendor}) - {antivirus.Status} - Защита в реальном времени: {antivirus.RealTimeProtection}",
                 Recommendation = antivirus.IsEnabled ?
                     "Поддерживайте антивирус в актуальном состоянии" :
@@ -1127,7 +1127,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Устаревшее программное обеспечение",
                 Category = "Приложения",
-                Status = outdatedSoftware.count == 0 ? "ОК - ПО актуально" : "ВНИМАНИЕ - Найдено устаревшее ПО",
+                Status = outdatedSoftware.count == 0 ? "OK" : "ВНИМАНИЕ - Найдено устаревшее ПО",
                 Details = outdatedSoftware.count == 0 ?
                     "Программное обеспечение обновлено" :
                     $"Обнаружено {outdatedSoftware.count} программ с известными уязвимостями",
@@ -1142,7 +1142,7 @@ namespace SecurityShield.Services
             {
                 CheckName = "Автозагрузка",
                 Category = "Приложения",
-                Status = startupCheck.isClean ? "ОК - Автозагрузка чистая" : "ВНИМАНИЕ - Подозрительные программы",
+                Status = startupCheck.isClean ? "OK" : "ВНИМАНИЕ - Подозрительные программы",
                 Details = startupCheck.details,
                 Recommendation = startupCheck.isClean ?
                     "Продолжайте мониторить автозагрузку" :
@@ -1500,8 +1500,8 @@ namespace SecurityShield.Services
         private void CalculateSecurityStatus(SecurityScanResult result)
         {
             result.TotalThreats = result.Threats.Count;
-            result.CriticalIssues = result.SecurityChecks.Count(c => c.IsCritical && !c.Status.Contains("ОК"));
-            result.Warnings = result.SecurityChecks.Count(c => !c.IsCritical && !c.Status.Contains("ОК"));
+            result.CriticalIssues = result.SecurityChecks.Count(c => c.IsCritical && !c.Status.Contains("OK"));
+            result.Warnings = result.SecurityChecks.Count(c => !c.IsCritical && !c.Status.Contains("OK"));
 
             if (result.CriticalIssues > 0)
             {
@@ -1541,7 +1541,7 @@ namespace SecurityShield.Services
         public List<SecurityVulnerability> CheckSystemConfiguration()
         {
             var checks = PerformSystemSecurityChecks();
-            return checks.Where(c => !c.Status.Contains("ОК")).Select(c => new SecurityVulnerability
+            return checks.Where(c => !c.Status.Contains("OK")).Select(c => new SecurityVulnerability
             {
                 Title = c.CheckName,
                 Description = c.Details,
@@ -1576,7 +1576,7 @@ namespace SecurityShield.Services
         public List<SecurityVulnerability> CheckNetworkSecurity()
         {
             var checks = PerformNetworkSecurityChecks();
-            return checks.Where(c => !c.Status.Contains("ОК")).Select(c => new SecurityVulnerability
+            return checks.Where(c => !c.Status.Contains("OK")).Select(c => new SecurityVulnerability
             {
                 Title = c.CheckName,
                 Description = c.Details,

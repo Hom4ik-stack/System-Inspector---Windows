@@ -546,7 +546,7 @@ namespace SecurityShield.Services
 
                 foreach (var tcp in tcpConnections)
                 {
-                    // Игнорируем локальные (loopback) соединения, если нужно
+               
                     if (IPAddress.IsLoopback(tcp.LocalAddress) && IPAddress.IsLoopback(tcp.RemoteAddress))
                         continue;
 

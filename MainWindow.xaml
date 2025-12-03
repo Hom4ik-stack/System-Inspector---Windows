@@ -801,7 +801,7 @@ Margin="10" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="Blue"/>
                                                     <DataTrigger Binding="{Binding IsCritical}" Value="True">
                                                         <Setter Property="Foreground" Value="Red"/>
                                                     </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Status}" Value="ОК">
+                                                    <DataTrigger Binding="{Binding Status}" Value="OK">
                                                         <Setter Property="Foreground" Value="Green"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Status}" Value="ВНИМАНИЕ">

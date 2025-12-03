@@ -186,7 +186,7 @@ namespace SecurityShield.Services
             device.VulnerabilityStatus = "Без уязвимостей";
             var warnings = new List<string>();
 
-            // Улучшенная логика проверок
+          
             if (device.Status.ToUpper() == "ERROR" || device.Status.ToUpper() == "DEGRADED")
             {
                 device.IsSafe = false;

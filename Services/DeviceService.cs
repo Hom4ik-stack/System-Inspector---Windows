@@ -116,7 +116,7 @@ namespace SecurityShield.Services
                     }
                 }
             }
-            catch (Exception ex) { Debug.WriteLine($"PnP Error: {ex.Message}"); }
+            catch (Exception ex) { Debug.WriteLine($"Ошибка PnP: {ex.Message}"); }
             return list;
         }
 

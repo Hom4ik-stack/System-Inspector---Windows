@@ -14,7 +14,7 @@ namespace SecurityShield.Services
         List<SecurityVulnerability> CheckUserAccounts();
         List<SecurityVulnerability> CheckNetworkSecurity();
         
-        // Новые методы для антивирусов и проверок
+     
         AntivirusInfo GetInstalledAntivirus();
      
 
@@ -22,7 +22,7 @@ namespace SecurityShield.Services
         DefenderStatus GetDefenderStatus();
   
         (bool Success, string Output, int Progress) StartDefenderScanWithProgress(string scanType);
-        List<SecurityEvent> SecurityEvents();
+    
         bool EnableDefenderProtection();
         void OpenWindowsSecurity();
         void OpenAntivirusUI();

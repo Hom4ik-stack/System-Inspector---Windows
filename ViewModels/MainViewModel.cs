@@ -172,7 +172,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"LoadInitialData Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка загрузки исходных данных: {ex.Message}");
             }
         }
         private void InitializeCharts()
@@ -210,7 +210,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"UpdateCpuData Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка обновления CPU:   {ex.Message}");
             }
         }
         private async void UpdateProcessesData()
@@ -227,7 +227,7 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"UpdateProcessesData Error: {ex.Message}");
+                Debug.WriteLine($"Ошибка обновления данных процессов: {ex.Message}");
             }
         }
         [RelayCommand]
@@ -360,8 +360,8 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                DriverStatus = "Ошибка загрузки драйверов";
-                Debug.WriteLine($"LoadDrivers Error: {ex.Message}");
+              
+                Debug.WriteLine($"Ошибка загрузки драйверов: {ex.Message}");
             }
         }
 
@@ -402,8 +402,8 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                DriverStatus = "Ошибка проверки драйверов";
-                Debug.WriteLine($"CheckDriverUpdates Error: {ex.Message}");
+               
+                Debug.WriteLine($"Ошибка проверки драйверов: {ex.Message}");
             }
         }
 
@@ -644,49 +644,26 @@ namespace SecurityShield.ViewModels
             }
         }
         [RelayCommand]
-        
         private async Task StartDefenderScan()
         {
             if (IsDefenderScanInProgress) return;
             try
             {
                 IsDefenderScanInProgress = true;
-                DefenderScanProgress = 0;
-                DefenderScanStatus = $"Запуск {SelectedScanType}...";
-                var result = await Task.Run(() =>
-                    _securityService.StartDefenderScanWithProgress(SelectedScanType));
-              
-                if (result.Progress == 0)
-                {
-                    for (int i = 0; i <= 100; i += 10)
-                    {
-                        if (!IsDefenderScanInProgress) break;
-                        DefenderScanProgress = i;
-                        DefenderScanStatus = $"{SelectedScanType} выполняется... {i}%";
-                        await Task.Delay(1000);
-                    }
-                }
-                else
-                {
-                    DefenderScanProgress = result.Progress;
-                    DefenderScanStatus = $"{SelectedScanType} выполняется... {result.Progress}%";
-                }
-                DefenderScanProgress = 100;
-                if (result.Success)
-                {
-                    DefenderScanStatus = $"{SelectedScanType} завершена успешно";
-                }
-                else
-                {
-                    DefenderScanStatus = "Ошибка запуска сканирования";
-                }
-                await LoadDefenderStatus();
-                await LoadSecurityEvents();
+                DefenderScanStatus = "Запуск сканирования...";
+
+                // Запускаем без ожидания прогресса (Fire and forget)
+                var result = await Task.Run(() => _securityService.StartDefenderScanWithProgress(SelectedScanType));
+
+                DefenderScanStatus = result.Success ? "Сканирование запущено в фоне" : "Ошибка запуска";
+
+                // Даем время на инициализацию процесса
+                await Task.Delay(2000);
             }
             catch (Exception ex)
             {
-                DefenderScanStatus = "Ошибка сканирования";
-                Debug.WriteLine($"StartDefenderScan Error: {ex.Message}");
+                DefenderScanStatus = "Ошибка";
+                Debug.WriteLine(ex.Message);
             }
             finally
             {
@@ -747,8 +724,7 @@ namespace SecurityShield.ViewModels
                 var result = await scanTask;
 
        
-                QuickScanStatus = "Анализ журнала событий...";
-                var freshEvents = await Task.Run(() => _securityService.SecurityEvents());
+            
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -772,9 +748,7 @@ namespace SecurityShield.ViewModels
                         foreach (var t in result.Threats) Threats.Add(t);
                     }
 
-                    SecurityEvents.Clear();
-                    foreach (var evt in freshEvents) SecurityEvents.Add(evt);
-
+                 
            
                     OnPropertyChanged(nameof(DisplayedSecurityChecks));
 
@@ -789,8 +763,8 @@ namespace SecurityShield.ViewModels
             }
             catch (Exception ex)
             {
-                QuickScanStatus = "Ошибка сканирования";
-                Debug.WriteLine($"Scan Error: {ex.Message}");
+             
+                Debug.WriteLine($"Ошибка сканирования: {ex.Message}");
             }
             finally
             {
@@ -840,29 +814,7 @@ namespace SecurityShield.ViewModels
                 Debug.WriteLine($"Ошибка немедленного обновления процесса: {ex.Message}");
             }
         }
-        [RelayCommand]
-        private async Task LoadSecurityEvents()
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    var events = _securityService.SecurityEvents();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        SecurityEvents.Clear();
-                        foreach (var evt in events)
-                        {
-                            SecurityEvents.Add(evt);
-                        }
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка загрузки событий безопасности: {ex.Message}");
-            }
-        }
+
         [RelayCommand]
         private void OpenDefenderSettings()
         {

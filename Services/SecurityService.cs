@@ -71,18 +71,17 @@ namespace SecurityShield.Services
             try
             {
                 var properties = IPGlobalProperties.GetIPGlobalProperties();
-                var tcpConnections = properties.GetActiveTcpConnections();
                 var listeners = properties.GetActiveTcpListeners();
 
-                // Опасные порты
+             
                 var riskyPorts = new Dictionary<int, string>
-        {
-            { 21, "FTP (Незащищенная передача файлов)" },
-            { 23, "Telnet (Нешифрованный удаленный доступ)" },
-            { 445, "SMB (Уязвимость WannaCry/Ransomware)" },
-            { 3389, "RDP (Удаленный рабочий стол)" },
-            { 5900, "VNC (Удаленное управление)" }
-        };
+                {
+                    { 21, "FTP (Незащищенная передача файлов)" },
+                    { 23, "Telnet (Нешифрованный удаленный доступ)" },
+                    { 445, "SMB (Высокий риск атак WannaCry)" },
+                    { 3389, "RDP (Удаленный рабочий стол)" },
+                    { 5900, "VNC (Удаленное управление)" }
+                };
 
                 foreach (var endpoint in listeners)
                 {
@@ -91,13 +90,14 @@ namespace SecurityShield.Services
 
                     if (riskyPorts.ContainsKey(endpoint.Port))
                     {
+
                         threats.Add(new SecurityThreat
                         {
-                            Name = $"Открыт опасный порт {endpoint.Port} ({riskyPorts[endpoint.Port]})",
+                            Name = $"Открыт критический порт {endpoint.Port}",
                             Type = "Сетевая угроза",
-                            Severity = endpoint.Port == 445 || endpoint.Port == 23 ? "Критическая" : "Высокая",
-                            Description = $"Порт {endpoint.Port} открыт для внешних подключений. Это может использоваться злоумышленниками.",
-                            Recommendation = "Настройте Брандмауэр Windows, чтобы заблокировать этот порт, или остановите службу."
+                            Severity = (endpoint.Port == 445 || endpoint.Port == 23) ? "Критическая" : "Высокая",
+                            Description = $"Порт {endpoint.Port} ({riskyPorts[endpoint.Port]}) открыт для внешних подключений (IP: {endpoint.Address}).",
+                            Recommendation = "Если вы не используете этот сервис, отключите его или настройте Брандмауэр."
                         });
                     }
                 }
@@ -108,8 +108,6 @@ namespace SecurityShield.Services
             }
             return threats;
         }
-
-
         private List<SecurityThreat> DetectSecurityThreats()
         {
             var threats = new List<SecurityThreat>();
@@ -586,7 +584,6 @@ namespace SecurityShield.Services
                 antivirus.Status = antivirus.IsEnabled ? "Активен" : "Неактивен";
                 antivirus.RealTimeProtection = CheckRealTimeProtection(antivirus.Name);
                 antivirus.IsUpToDate = CheckAntivirusUpdates(antivirus.Name);
-                antivirus.LastUpdate = GetLastUpdateTime(antivirus.Name);
                 antivirus.Version = GetAntivirusVersion(antivirus.Name);
             }
             catch (Exception ex)
@@ -696,43 +693,7 @@ namespace SecurityShield.Services
             return true;
         }
 
-        private DateTime GetLastUpdateTime(string antivirusName)
-        {
-            try
-            {
-                if (antivirusName.ToLower().Contains("defender"))
-                {
-                    
-                    using var searcher = new ManagementObjectSearcher(@"root\Microsoft\Windows\Defender", "SELECT * FROM MSFT_MpComputerStatus");
-                    var obj = searcher.Get().Cast<ManagementObject>().FirstOrDefault();
-                    if (obj != null)
-                    {
-                        var sigDate = obj["AntivirusSignatureLastUpdated"]?.ToString();
-                        if (sigDate != null)
-                        {
-                            return ManagementDateTimeConverter.ToDateTime(sigDate);
-                        }
-                    }
-                }
-
-                
-                using var searcherWSC = new ManagementObjectSearcher(@"root\SecurityCenter2", "SELECT * FROM AntiVirusProduct");
-                foreach (ManagementObject product in searcherWSC.Get())
-                {
-                    if (product["displayName"]?.ToString() == antivirusName)
-                    {
-                        break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка получения времени обновления антивируса: {ex.Message}");
-            }
-
-
-            return DateTime.MinValue;
-        }
+      
         private string GetAntivirusVersion(string antivirusName)
         {
             try
@@ -772,6 +733,8 @@ namespace SecurityShield.Services
             return null;
         }
 
+
+
         public SecurityScanResult PerformComprehensiveSecurityScan()
         {
             var result = new SecurityScanResult
@@ -783,24 +746,30 @@ namespace SecurityShield.Services
 
             try
             {
-               
-                result.SecurityChecks.AddRange(PerformSystemSecurityChecks()); // Обновления, Брандмауэр
-
-             
+                // 1. Системные проверки
+                result.SecurityChecks.AddRange(PerformSystemSecurityChecks());
                 result.SecurityChecks.Add(CheckSmb1Protocol());
                 result.SecurityChecks.Add(CheckRemoteRegistry());
                 result.SecurityChecks.Add(CheckAutoRunPolicies());
 
-                
-                result.SecurityChecks.AddRange(PerformNetworkSecurityChecks()); // Порты
+                // 2. Сетевые проверки (Порты)
+                result.SecurityChecks.AddRange(PerformNetworkSecurityChecks());
 
-           
-                result.SecurityChecks.AddRange(PerformUserSecurityChecks()); // Пароли, Админы
+                // 3. Проверки пользователей
+                result.SecurityChecks.AddRange(PerformUserSecurityChecks());
 
-                
+                // 4. Приложения
                 result.SecurityChecks.AddRange(PerformApplicationSecurityChecks());
 
-                result.Threats.AddRange(DetectSecurityThreats());
+                // 5. Поиск активных угроз
+                var rawThreats = DetectSecurityThreats();
+                result.Threats.AddRange(rawThreats);
+
+                // Группируем угрозы по имени и берем только первую, чтобы убрать повторы
+                result.Threats = result.Threats
+                    .GroupBy(t => t.Name)
+                    .Select(g => g.First())
+                    .ToList();
 
                 CalculateSecurityStatus(result);
                 _lastScanResult = result;
@@ -808,9 +777,8 @@ namespace SecurityShield.Services
             catch (Exception ex)
             {
                 Debug.WriteLine($"Ошибка сканирования: {ex.Message}");
-                result.OverallStatus = "Ошибка сканирования";
+             
             }
-
             return result;
         }
         private SecurityCheck CheckSmb1Protocol()
@@ -1237,40 +1205,28 @@ namespace SecurityShield.Services
             {
                 var properties = IPGlobalProperties.GetIPGlobalProperties();
                 var tcpListeners = properties.GetActiveTcpListeners();
-                var udpListeners = properties.GetActiveUdpListeners();
 
-                // Исключаем общеизвестные и "шумные" порты Windows
-                var excludedPorts = new[] { 135, 445, 5357 }; // RPC, SMB, WSD
-
-                var riskyPorts = new[] { 21, 23, 25, 139, 3306, 3389, 5900 };
+                // Порты, которые мы считаем рискованными
+                var riskyPorts = new[] { 21, 23, 25, 445, 3389, 5900 };
 
                 foreach (var endpoint in tcpListeners)
                 {
-                    if (excludedPorts.Contains(endpoint.Port)) continue; // Пропускаем
+    
+                    if (IPAddress.IsLoopback(endpoint.Address)) continue;
 
-                    // Пропускаем, если порт слушает только на localhost
-                    if (endpoint.Address.Equals(IPAddress.Loopback) || endpoint.Address.Equals(IPAddress.IPv6Loopback)) continue;
+                    bool isRisky = riskyPorts.Contains(endpoint.Port);
 
-                    openPorts.Add(new OpenPortInfo
+                
+                    if (isRisky || endpoint.Address.Equals(IPAddress.Any) || endpoint.Address.Equals(IPAddress.IPv6Any))
                     {
-                        PortNumber = endpoint.Port,
-                        Protocol = "TCP Listen",
-                        Address = endpoint.Address.ToString(),
-                        IsRisky = riskyPorts.Contains(endpoint.Port)
-                    });
-                }
-                foreach (var endpoint in udpListeners)
-                {
-                    if (excludedPorts.Contains(endpoint.Port)) continue; // Пропускаем
-                    if (endpoint.Address.Equals(IPAddress.Loopback) || endpoint.Address.Equals(IPAddress.IPv6Loopback)) continue;
-
-                    openPorts.Add(new OpenPortInfo
-                    {
-                        PortNumber = endpoint.Port,
-                        Protocol = "UDP Listen",
-                        Address = endpoint.Address.ToString(),
-                        IsRisky = riskyPorts.Contains(endpoint.Port)
-                    });
+                        openPorts.Add(new OpenPortInfo
+                        {
+                            PortNumber = endpoint.Port,
+                            Protocol = "TCP",
+                            Address = endpoint.Address.ToString(),
+                            IsRisky = isRisky
+                        });
+                    }
                 }
             }
             catch (Exception ex)
@@ -1326,40 +1282,46 @@ namespace SecurityShield.Services
             return (true, "Настройки по умолчанию");
         }
 
-
-
         private (bool isSecure, string details, string recommendation) CheckUserAccountsDetailed()
         {
             try
             {
-                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_UserAccount WHERE LocalAccount = TRUE AND Disabled = FALSE AND AccountType = 512");
+                
+                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_UserAccount WHERE LocalAccount = TRUE AND Disabled = FALSE");
                 var users = searcher.Get().Cast<ManagementObject>().ToList();
 
-                var accountsWithoutPassword = users.Count(u =>
-                    u["PasswordRequired"]?.ToString() == "False" &&
-                    u["Disabled"]?.ToString() == "False");
+                int riskyAccounts = 0;
+                var detailsBuilder = new StringBuilder();
 
-                var disabledAccounts = users.Count(u => u["Disabled"]?.ToString() == "True");
-                var localAccounts = users.Count(u => u["LocalAccount"]?.ToString() == "True");
+                foreach (var user in users)
+                {
+                    string name = user["Name"]?.ToString() ?? "Unknown";
 
-                if (accountsWithoutPassword > 0)
+                    if (name.Equals("Guest", StringComparison.OrdinalIgnoreCase) || name.Equals("Гость", StringComparison.OrdinalIgnoreCase))
+                    {
+                        riskyAccounts++;
+                        detailsBuilder.Append($"Активна учетная запись 'Гость'. ");
+                    }
+
+                }
+
+                if (riskyAccounts > 0)
                 {
                     return (false,
-                           $"Найдено {accountsWithoutPassword} учетных записей без пароля",
-                           "Установите пароли для всех учетных записей");
+                        detailsBuilder.ToString(),
+                        "Отключите учетную запись Гостя и проверьте пользователей.");
                 }
 
                 return (true,
-                       $"Учетных записей: {users.Count}, локальных: {localAccounts}, отключенных: {disabledAccounts}",
-                       "Поддерживайте надежные пароли");
+                    $"Активных локальных пользователей: {users.Count}. Проблем не обнаружено.",
+                    "Регулярно меняйте пароли.");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Ошибка проверки учетных записей: {ex.Message}");
-                return (true, "Не удалось проверить учетные записи", "Проверьте учетные записи вручную");
+                return (true, "Не удалось проверить учетные записи (требуются права администратора)", "Проверьте учетные записи вручную");
             }
         }
-
         private (bool isOptimal, string details, string recommendation) CheckAdminPrivilegesDetailed()
         {
             try
@@ -1775,7 +1737,7 @@ namespace SecurityShield.Services
             }
         }
 
-
+    
         public void OpenAntivirusUI()
         {
           
@@ -1807,85 +1769,6 @@ namespace SecurityShield.Services
 
 
             OpenWindowsSecurity();
-        }
-
-        public List<SecurityEvent> SecurityEvents()
-        {
-            var events = new List<SecurityEvent>();
-            var startTime = DateTime.Now.AddDays(-1); 
-
-          
-            AddDefenderEvents(events);
-
-            
-            string querySecurity = $"*[System[EventID=4625 and TimeCreated[@SystemTime >= '{startTime.ToUniversalTime():o}']]]";
-            AddEventsFromQuery(events, "Security", querySecurity, "Неудачный вход", "Высокая");
-
-   
-            string queryApplication = $"*[System[Provider[@Name='Application Error'] and EventID=1000 and Level=2 and TimeCreated[@SystemTime >= '{startTime.ToUniversalTime():o}']]]";
-            AddEventsFromQuery(events, "Application", queryApplication, "Сбой приложения", "Средняя");
-
-            return events.OrderByDescending(e => e.TimeGenerated).Take(50).ToList();
-        }
-
-    
-        private void AddEventsFromQuery(List<SecurityEvent> events, string logName, string query, string eventType, string severity)
-        {
-            try
-            {
-                var eventQuery = new EventLogQuery(logName, PathType.LogName, query)
-                {
-                    ReverseDirection = true
-                };
-
-                using (var reader = new EventLogReader(eventQuery))
-                {
-                    EventRecord record;
-                    while ((record = reader.ReadEvent()) != null && events.Count < 50) 
-                    {
-                        events.Add(new SecurityEvent
-                        {
-                            TimeGenerated = record.TimeCreated?.ToLocalTime() ?? DateTime.Now,
-                            EventType = eventType,
-                            Source = record.ProviderName,
-                            Description = record.FormatDescription()?.Split('\n')[0] ?? "Нет описания", 
-                            Severity = severity
-                        });
-                    }
-                }
-            }
-            catch (EventLogNotFoundException)
-            {
-                Debug.WriteLine($"Журнал '{logName}' не найден.");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка чтения журнала '{logName}': {ex.Message}");
-            }
-        }
-
-
-        private void AddDefenderEvents(List<SecurityEvent> events)
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher(@"root\Microsoft\Windows\Defender", "SELECT * FROM MSFT_MpThreat");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    events.Add(new SecurityEvent
-                    {
-                        TimeGenerated = DateTime.Now.AddDays(-1),
-                        EventType = "Угроза",
-                        Source = "Защитник Windows",
-                        Description = $"Обнаружена угроза: {obj["ThreatName"]}",
-                        Severity = "Высокая"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка чтения событий Защитника: {ex.Message}");
-            }
         }
 
 

@@ -57,7 +57,7 @@ namespace SecurityShield.Services
     
         public static string GetLocalPortDescription(int port)
         {
-            if (port < 1024) return "Системный порт (редко)";
+            if (port < 1024) return "Системный порт";
             if (port < 49152) return "Порт приложения";
             return "Динамический (временный) порт";
         }

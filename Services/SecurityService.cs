@@ -3,6 +3,8 @@ using SecurityShield.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Eventing;
+using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,13 +12,13 @@ using System.Management;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
-using System.Diagnostics.Eventing.Reader;
-using System.Diagnostics.Eventing;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Controls.Primitives;
+using System.Xml.Linq;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SecurityShield.Services
@@ -443,6 +445,7 @@ namespace SecurityShield.Services
             var lowerName = productName.ToLower();
 
             if (lowerName.Contains("kaspersky")) return "Kaspersky Lab";
+            if (lowerName.Contains("Kaspersky Endpoint Security")) return "Kaspersky Lab";
             if (lowerName.Contains("eset") || lowerName.Contains("nod32")) return "ESET";
             if (lowerName.Contains("avast")) return "Avast Software";
             if (lowerName.Contains("avg")) return "AVG Technologies";
@@ -544,6 +547,7 @@ namespace SecurityShield.Services
                 { "norton", ("Norton Antivirus", "NortonLifeLock") },
                 { "mcafee", ("McAfee Antivirus", "McAfee") },
                 { "kaspersky", ("Kaspersky Anti-Virus", "Kaspersky Lab") },
+                { "kaspersky Endpoint Security", ("Kaspersky Anti-Virus", "Kaspersky Lab") },
                 { "eset", ("ESET NOD32 Antivirus", "ESET") },
                 { "avp", ("Kaspersky Anti-Virus", "Kaspersky Lab") },
                 { "avira", ("Avira Antivirus", "Avira") },
@@ -604,6 +608,7 @@ namespace SecurityShield.Services
                 var processMapping = new Dictionary<string, string[]>
                 {
                     { "kaspersky", new[] { "avp", "kaspersky" } },
+                    { "kaspersky Endpoint Security", new[] { "avp", "kaspersky" } },
                     { "avast", new[] { "avast", "aswidsagent" } },
                     { "avg", new[] { "avg", "avgui" } },
                     { "bitdefender", new[] { "bdagent", "vsserv" } },
@@ -720,7 +725,8 @@ namespace SecurityShield.Services
         private string GetAntivirusRegistryPath(string antivirusName)
         {
             var lowerName = antivirusName.ToLower();
-
+            
+            if (lowerName.Contains("kaspersky Endpoint Security")) return @"SOFTWARE\KasperskyLab";
             if (lowerName.Contains("kaspersky")) return @"SOFTWARE\KasperskyLab";
             if (lowerName.Contains("eset")) return @"SOFTWARE\ESET\ESET Security";
             if (lowerName.Contains("avast")) return @"SOFTWARE\Avast Software\Avast";

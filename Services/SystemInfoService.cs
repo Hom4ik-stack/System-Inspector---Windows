@@ -7,12 +7,13 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Net;
-using System.Threading.Tasks;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 
 namespace SecurityShield.Services
 {
@@ -48,48 +49,70 @@ namespace SecurityShield.Services
 
         public SystemInfo GetDetailedSystemInfo()
         {
-            var info = new SystemInfo
-            {
-                OSVersion = Environment.OSVersion.VersionString,
-                ComputerName = Environment.MachineName,
-                UserName = Environment.UserName,
-                Domain = Environment.UserDomainName
-            };
-
+            var info = new SystemInfo();
             try
             {
-                // Используем быстрые запросы WMI
-                using var searcherProc = new ManagementObjectSearcher("SELECT Name, NumberOfCores FROM Win32_Processor");
-                foreach (ManagementObject obj in searcherProc.Get())
-                {
-                    info.Processor = $"{obj["Name"]} ({obj["NumberOfCores"]} ядер)";
-                    break;
-                }
-
-                using var searcherMem = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
-                foreach (ManagementObject obj in searcherMem.Get())
-                {
-                    if (ulong.TryParse(obj["TotalPhysicalMemory"]?.ToString(), out ulong totalBytes))
-                        info.TotalRAM = $"{(totalBytes / 1024.0 / 1024.0 / 1024.0):F1} GB";
-                    break;
-                }
-
-                // Инфо о версии
+                info.OSVersion = Environment.OSVersion.VersionString;
                 info.Build = Environment.OSVersion.Version.Build.ToString();
-                info.UpdateStatus = CheckWindowsVersionStatus();
+                info.ComputerName = Environment.MachineName;
+                info.UserName = Environment.UserName;
+                info.Domain = Environment.UserDomainName;
 
-                // Сетевые адаптеры
-                foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces().Where(a => a.OperationalStatus == OperationalStatus.Up))
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        info.Processor = $"{obj["Name"]} ({obj["NumberOfCores"]} ядер)";
+                        break;
+                    }
+                }
+
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        var totalBytes = Convert.ToUInt64(obj["TotalPhysicalMemory"]);
+                        info.TotalRAM = $"{(totalBytes / 1024.0 / 1024.0 / 1024.0):F1} GB";
+                        break;
+                    }
+                }
+
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        info.Motherboard = $"{obj["Manufacturer"]} {obj["Product"]}";
+                        break;
+                    }
+                }
+
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        info.BIOS = $"{obj["Manufacturer"]} {obj["SMBIOSBIOSVersion"]}";
+                        break;
+                    }
+                }
+
+                var adapters = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var adapter in adapters.Where(a => a.OperationalStatus == OperationalStatus.Up))
                 {
                     info.NetworkAdapters.Add($"{adapter.Name} ({adapter.NetworkInterfaceType})");
                 }
+
+                info.UpdateStatus = CheckWindowsVersionStatus();
+
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка SystemInfo: {ex.Message}");
+                Debug.WriteLine($"Ошибка получения системной информации: {ex.Message}");
             }
+
             return info;
         }
+
+
         private string CheckWindowsVersionStatus()
         {
             try
@@ -460,7 +483,7 @@ namespace SecurityShield.Services
                             Name = valueName,
                             Command = key.GetValue(valueName)?.ToString() ?? "",
                             Location = "HKCU\\...\\Run",
-                            User = "Current User"
+                            User = "Текущий пользователь"
                         });
                     }
                 }
@@ -478,7 +501,7 @@ namespace SecurityShield.Services
                             Name = valueName,
                             Command = key.GetValue(valueName)?.ToString() ?? "",
                             Location = "HKLM\\...\\Run",
-                            User = "All Users"
+                            User = "Все пользователи"
                         });
                     }
                 }
@@ -495,7 +518,7 @@ namespace SecurityShield.Services
                             Name = valueName,
                             Command = key.GetValue(valueName)?.ToString() ?? "",
                             Location = "HKCU\\...\\RunOnce",
-                            User = "Current User (Once)"
+                            User = "Текущий пользователь"
                         });
                     }
                 }
@@ -512,7 +535,7 @@ namespace SecurityShield.Services
                             Name = valueName,
                             Command = key.GetValue(valueName)?.ToString() ?? "",
                             Location = "HKLM\\...\\RunOnce",
-                            User = "All Users (Once)"
+                            User = "Все пользователи"
                         });
                     }
                 }
@@ -528,8 +551,8 @@ namespace SecurityShield.Services
                     {
                         Name = Path.GetFileName(file),
                         Command = file,
-                        Location = "Startup Folder",
-                        User = "Current User"
+                        Location = "Начальная папка",
+                        User = "Текущий пользователь"
                     });
                 }
             }
@@ -541,7 +564,7 @@ namespace SecurityShield.Services
             var connections = new List<NetworkConnectionInfo>();
             try
             {
-                // Получаем список соединений через WinAPI (функция ниже)
+                // Получаем список соединений через WinAPI
                 var tcpConnections = GetAllTcpConnections();
 
                 foreach (var tcp in tcpConnections)

@@ -11,7 +11,7 @@
 		<DebugSymbols>true</DebugSymbols>
 		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
 		<AssemblyName>SecurityShield</AssemblyName>
-		<AssemblyTitle>System Inspector</AssemblyTitle>
+		<AssemblyTitle>Security Shield: System Inspector</AssemblyTitle>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<ApplicationIcon>computer_114463.ico</ApplicationIcon>
 

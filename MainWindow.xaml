@@ -7,7 +7,7 @@
         xmlns:converters="clr-namespace:SecurityShield.Converters"
         xmlns:local="clr-namespace:SecurityShield"
         mc:Ignorable="d"
-        Title="System Inspector"
+        Title="Security Shield: System Inspector"
         Height="800" Width="1200"
         WindowStartupLocation="CenterScreen"
         Background="#FFF0F0F0">
@@ -20,6 +20,7 @@
         <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
         <converters:BoolToTextConverter x:Key="BoolToTextConverter"/>
         <converters:ContainsStringVisibilityConverter x:Key="ContainsStringVisibilityConverter"/>
+        <converters:PercentageToBrushConverter x:Key="PercentageToBrushConverter"/>
 
         <!-- Стили -->
         <Style TargetType="TextBlock">
@@ -132,7 +133,7 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="🛡️" FontSize="20" Margin="0,0,10,0"/>
-                    <TextBlock Text="System Inspector"
+                    <TextBlock Text="Security Shield: System Inspector"
                               Foreground="White" FontSize="16" FontWeight="Bold"/>
                 </StackPanel>
 
@@ -390,24 +391,10 @@
                                                 <TextBlock Text="{Binding UsedPercentage, StringFormat='Заполнение: {0:F1}%', Mode=OneWay}"/>
                                                 <!-- Прогресс-бар -->
                                                 <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}"
-                                                            Maximum="100"
-                                                            Height="20"
-                                                            Margin="0,5,0,0">
-                                                    <ProgressBar.Style>
-                                                        <Style TargetType="ProgressBar">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding UsedPercentage}" Value="90">
-                                                                    <Setter Property="Foreground" Value="Red"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding UsedPercentage}" Value="75">
-                                                                    <Setter Property="Foreground" Value="Orange"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding UsedPercentage}" Value="50">
-                                                                    <Setter Property="Foreground" Value="Green"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ProgressBar.Style>
+                                                    Maximum="100"
+                                                    Height="20"
+                                                    Margin="0,5,0,0"
+                                                    Foreground="{Binding UsedPercentage, Converter={StaticResource PercentageToBrushConverter}}">
                                                 </ProgressBar>
                                                 <Button Content="  📁   Открыть в Проводнике"
                                                     Command="{Binding DataContext.OpenDriveInExplorerCommand, 

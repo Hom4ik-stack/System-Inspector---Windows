@@ -1047,7 +1047,7 @@ namespace SecurityShield.ViewModels
         private void ShowAbout()
         {
             MessageBox.Show(
-                "System Inspector v1.0\n\n" +
+                "Security Shield v1.0\n\n" +
                 "Проект по информационной безопасности.\n\n" +
                 "Расширенные функции:\n" +
                 "- Мониторинг системы в реальном времени\n" +

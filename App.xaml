@@ -12,5 +12,6 @@
         <converters:DeviceTypeToVisibilityConverter x:Key="DeviceTypeToVisibilityConverter"/>
         <converters:EnumToDescriptionConverter x:Key="EnumToDescriptionConverter"/>
         <converters:ContainsStringVisibilityConverter x:Key="ContainsStringVisibilityConverter"/>
+        <converters:PercentageToBrushConverter x:Key="PercentageToBrushConverter"/>
     </Application.Resources>
 </Application>

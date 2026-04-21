@@ -1,0 +1,84 @@
+<Window x:Class="SecurityShield.ReportOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Настройка отчёта" Width="420" Height="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#F1F5F9">
+    <Border Margin="20" Background="White" CornerRadius="8" Padding="24"
+            BorderBrush="#E2E8F0" BorderThickness="1">
+        <StackPanel>
+            <TextBlock Text="Выберите разделы отчёта"
+                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,16"
+                       Foreground="#0F172A"/>
+
+            <StackPanel x:Name="SystemPanel">
+                <CheckBox Content="Информация о системе"
+                          IsChecked="{Binding IncludeSystemInfo}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Проверки безопасности"
+                          IsChecked="{Binding IncludeSecurityChecks}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Обнаруженные угрозы"
+                          IsChecked="{Binding IncludeThreats}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Устройства"
+                          IsChecked="{Binding IncludeDevices}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Драйверы"
+                          IsChecked="{Binding IncludeDrivers}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Процессы (топ-10)"
+                          IsChecked="{Binding IncludeProcesses}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Дисковые накопители"
+                          IsChecked="{Binding IncludeDrives}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Установленное ПО"
+                          IsChecked="{Binding IncludeSoftware}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Автозагрузка"
+                          IsChecked="{Binding IncludeStartupPrograms}"
+                          Margin="0,4" FontSize="13"/>
+            </StackPanel>
+
+            <StackPanel x:Name="NetworkPanel">
+                <CheckBox Content="Сетевые хосты"
+                          IsChecked="{Binding IncludeNetworkHosts}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Статистика сети"
+                          IsChecked="{Binding IncludeStatistics}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Таблица хостов"
+                          IsChecked="{Binding IncludeHostDetails}"
+                          Margin="0,4" FontSize="13"/>
+                <CheckBox Content="Детальные проверки хостов"
+                          IsChecked="{Binding IncludeHostChecks}"
+                          Margin="0,4" FontSize="13"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,12">
+                <Button Content="Выбрать все" Click="OnSelectAll"
+                        Padding="10,4" Margin="0,0,8,0" Cursor="Hand"
+                        Background="#3B82F6" Foreground="White"
+                        BorderThickness="0"/>
+                <Button Content="Снять все" Click="OnDeselectAll"
+                        Padding="10,4" Cursor="Hand"
+                        Background="#64748B" Foreground="White"
+                        BorderThickness="0"/>
+            </StackPanel>
+
+            <Border Height="1" Background="#E2E8F0" Margin="0,4,0,16"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Сформировать" Click="OnGenerate"
+                        Padding="16,8" Margin="0,0,8,0" Cursor="Hand"
+                        Background="#10B981" Foreground="White"
+                        BorderThickness="0" FontWeight="SemiBold"/>
+                <Button Content="Отмена" Click="OnCancel"
+                        Padding="16,8" Cursor="Hand"
+                        Background="#EF4444" Foreground="White"
+                        BorderThickness="0"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

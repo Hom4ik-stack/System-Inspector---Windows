@@ -9,18 +9,16 @@ namespace SecurityShield.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is double percentage)
+            if (value is double pct)
             {
-                if (percentage >= 90) return Brushes.Red;      // Более 90%
-                if (percentage >= 75) return Brushes.Yellow;   // От 75% до 90%
-                return Brushes.Green;                          // Менее 75%
+                if (pct >= 90) return new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                if (pct >= 75) return new SolidColorBrush(Color.FromRgb(245, 158, 11));
+                return new SolidColorBrush(Color.FromRgb(16, 185, 129));
             }
-            return Brushes.Green;
+            return Brushes.Gray;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
+            => throw new NotImplementedException();
     }
 }

@@ -10,8 +10,8 @@
 		<DebugType>pdbonly</DebugType>
 		<DebugSymbols>true</DebugSymbols>
 		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
-		<AssemblyName>SecurityShield</AssemblyName>
-		<AssemblyTitle>Security Shield: System Inspector</AssemblyTitle>
+		<AssemblyName>System Inspector</AssemblyName>
+		<AssemblyTitle>System Inspector</AssemblyTitle>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<ApplicationIcon>computer_114463.ico</ApplicationIcon>
 
@@ -41,6 +41,7 @@
 		<PackageReference Include="System.Management" Version="7.0.2" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+		<PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
 	</ItemGroup>
 
 </Project>

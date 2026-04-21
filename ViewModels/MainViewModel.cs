@@ -6,1079 +6,708 @@ using Microsoft.Win32;
 using SecurityShield.Models;
 using SecurityShield.Services;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Data;
 using System.Windows.Threading;
+
 namespace SecurityShield.ViewModels
-
-
 {
     public partial class MainViewModel : ObservableObject
     {
-        // Сервисы
-        private readonly ISystemInfoService _systemInfoService;
-        private readonly IDriverService _driverService;
-        private readonly IDeviceService _deviceService;
-        private readonly ISecurityService _securityService;
-        private readonly IReportService _reportService;
+        private readonly ISystemInfoService _sys;
+        private readonly IDriverService _drv;
+        private readonly IDeviceService _dev;
+        private readonly ISecurityService _sec;
+        private readonly IReportService _rpt;
+        private readonly INetworkScanService _net;
+        private CancellationTokenSource? _scanCts;
 
-        // Таймеры
-        private DispatcherTimer _cpuTimer = new DispatcherTimer();
-        private DispatcherTimer _processTimer = new DispatcherTimer();
-        private DispatcherTimer _driveTimer = new DispatcherTimer();
-        private DispatcherTimer _timeTimer = new DispatcherTimer();
-
-        // Свойства 
-        [ObservableProperty] private SystemInfo _systemInfo = new SystemInfo();
+        [ObservableProperty] private SystemInfo _systemInfo = new();
         [ObservableProperty] private string _currentTime = string.Empty;
-        [ObservableProperty] private SeriesCollection _cpuSeries = new SeriesCollection();
-
-        [ObservableProperty] private ObservableCollection<ProcessInfo> _processes = new ObservableCollection<ProcessInfo>();
-        [ObservableProperty] private ObservableCollection<DriveInfoModel> _drives = new ObservableCollection<DriveInfoModel>();
-        [ObservableProperty] private ObservableCollection<DriverInfo> _drivers = new ObservableCollection<DriverInfo>();
-        [ObservableProperty] private ObservableCollection<DeviceInfo> _devices = new ObservableCollection<DeviceInfo>();
-       
-        [ObservableProperty] private ObservableCollection<SecurityVulnerability> _vulnerabilities = new ObservableCollection<SecurityVulnerability>();
-
-
-        // Для безопасности
-        [ObservableProperty] private ObservableCollection<SecurityCheck> _securityChecks = new ObservableCollection<SecurityCheck>();
-        [ObservableProperty] private ObservableCollection<SecurityThreat> _threats = new ObservableCollection<SecurityThreat>();
-        [ObservableProperty] private ObservableCollection<SecurityEvent> _securityEvents = new ObservableCollection<SecurityEvent>();
-
-        [ObservableProperty] private ObservableCollection<DeviceInfo> _vulnerableDevices = new ObservableCollection<DeviceInfo>();
-        [ObservableProperty] private ObservableCollection<DeviceInfo> _newlyConnectedDevices = new ObservableCollection<DeviceInfo>();
-
-        [ObservableProperty] private DefenderStatus _defenderStatus = new DefenderStatus();
-        [ObservableProperty] private AntivirusInfo _antivirusInfo = new AntivirusInfo();
-
-        [ObservableProperty] private ObservableCollection<SoftwareInfo> _installedSoftware = new ObservableCollection<SoftwareInfo>();
-        [ObservableProperty] private ObservableCollection<StartupProgram> _startupPrograms = new ObservableCollection<StartupProgram>();
-        [ObservableProperty] private ObservableCollection<NetworkConnectionInfo> _networkConnections = new ObservableCollection<NetworkConnectionInfo>();
-
-        // Инициализируем, чтобы убрать warning CS8618
-        [ObservableProperty] private SecurityScanResult _securityScanResult = new SecurityScanResult();
-
-        // Статусы UI
-        [ObservableProperty] private string _scanStatus = "Готов к проверке безопасности";
-        [ObservableProperty] private string _driverStatus = "Нажмите 'Проверить драйверы' для анализа";
-        [ObservableProperty] private string _deviceStatus = "Мониторинг устройств активен";
-        [ObservableProperty] private string _defenderScanStatus = "Готов к сканированию";
-        [ObservableProperty] private string _quickScanStatus = "Готов к проверке";
-
-        // Флаги
-        [ObservableProperty] private bool _isScanning;
-        [ObservableProperty] private bool _isDefenderScanInProgress;
+        [ObservableProperty] private SeriesCollection _cpuSeries = new();
+        [ObservableProperty] private ObservableCollection<ProcessInfo> _processes = new();
+        [ObservableProperty] private ObservableCollection<DriveInfoModel> _drives = new();
+        [ObservableProperty] private ObservableCollection<DriverInfo> _drivers = new();
+        [ObservableProperty] private ObservableCollection<DeviceInfo> _devices = new();
+        [ObservableProperty] private ObservableCollection<SecurityCheck> _securityChecks = new();
+        [ObservableProperty] private ObservableCollection<SecurityThreat> _threats = new();
+        [ObservableProperty] private AntivirusInfo _antivirusInfo = new();
+        [ObservableProperty] private DefenderStatus _currentDefenderStatus = new();
+        [ObservableProperty] private ObservableCollection<SoftwareInfo> _installedSoftware = new();
+        [ObservableProperty] private ObservableCollection<StartupProgram> _startupPrograms = new();
+        [ObservableProperty] private ObservableCollection<NetworkConnectionInfo> _networkConnections = new();
+        [ObservableProperty] private SecurityScanResult _securityScanResult = new();
+        [ObservableProperty] private string _driverStatus = "Загрузка...";
+        [ObservableProperty] private string _deviceStatus = "Загрузка...";
+        [ObservableProperty] private string _quickScanStatus = "Выполняется...";
         [ObservableProperty] private bool _isQuickScanInProgress;
-        [ObservableProperty] private int _defenderScanProgress;
-        [ObservableProperty] private bool _showOnlyVulnerableDevices;
-
         [ObservableProperty] private int _totalProcessesCount;
-        [ObservableProperty] private string _selectedScanType = "Быстрая проверка";
 
-        // Фильтрация проверок безопасности
-        public enum SecurityFilterType { All, Risks, Safe }
-        [ObservableProperty] private SecurityFilterType _currentSecurityFilter = SecurityFilterType.All;
-
-        // Коллекция для отображения в UI (фильтрованная)
-        public IEnumerable<SecurityCheck> DisplayedSecurityChecks
-        {
-            get
-            {
-                if (SecurityChecks == null) return Enumerable.Empty<SecurityCheck>();
-
-                return CurrentSecurityFilter switch
-                {
-                    SecurityFilterType.Risks => SecurityChecks.Where(c => !c.Status.Contains("OK") && !c.Status.Contains("Защищено")),
-                    SecurityFilterType.Safe => SecurityChecks.Where(c => c.Status.Contains("OK") || c.Status.Contains("Защищено")),
-                    _ => SecurityChecks
-                };
-            }
-        }
-
-        public List<string> ScanTypes { get; } = new List<string>
-        { "Быстрая проверка", "Полная проверка", "Проверка автостарта", "Проверка сети" };
-
-        public ObservableCollection<DeviceInfo> DisplayedDevices => ShowOnlyVulnerableDevices
-            ? VulnerableDevices
-            : Devices;
+        [ObservableProperty] private ObservableCollection<NetworkHost> _networkHosts = new();
+        [ObservableProperty] private string _startIp = "192.168.1.1";
+        [ObservableProperty] private string _endIp = "192.168.1.254";
+        [ObservableProperty] private string _networkUsername = string.Empty;
+        [ObservableProperty] private string _networkPassword = string.Empty;
+        [ObservableProperty] private string _networkDomain = string.Empty;
+        [ObservableProperty] private bool _isNetworkScanning;
+        [ObservableProperty] private string _networkScanStatus = "Готов к сканированию";
+        [ObservableProperty] private int _totalHostsCount;
+        [ObservableProperty] private int _onlineHostsCount;
+        [ObservableProperty] private int _auditedHostsCount;
+        [ObservableProperty] private int _vulnerableHostsCount;
 
         public MainViewModel(
-            ISystemInfoService systemInfoService,
-            IDriverService driverService,
-            IDeviceService deviceService,
-            ISecurityService securityService,
-            IReportService reportService)
+            ISystemInfoService sys, IDriverService drv, IDeviceService dev,
+            ISecurityService sec, IReportService rpt, INetworkScanService net)
         {
-            _systemInfoService = systemInfoService;
-            _driverService = driverService;
-            _deviceService = deviceService;
-            _securityService = securityService;
-            _reportService = reportService;
+            _sys = sys; _drv = drv; _dev = dev; _sec = sec; _rpt = rpt; _net = net;
 
-            InitializeTimers();
-            InitializeCharts();
+            var (s, e) = _net.DetectLocalSubnet();
+            StartIp = s; EndIp = e;
 
- 
-            if (_deviceService is DeviceService ds)
-            {
-                ds.DeviceListChanged += (s, e) => _ = LoadDevices(isAutoUpdate: true);
-            }
+            InitTimers();
+            InitChart();
 
-      
-            _ = Task.Run(() => LoadInitialData());
-            _ = Task.Run(() => LoadDevices());
-            _ = Task.Run(() => LoadDefenderStatus());
-            _ = Task.Run(() => LoadAntivirusInfo());
-            _ = Task.Run(() => LoadInstalledSoftware());
-            _ = Task.Run(() => LoadStartupPrograms());
-            _ = Task.Run(() => LoadNetworkConnections());
+            if (_dev is DeviceService ds)
+                ds.DeviceListChanged += (_, __) => _ = LoadDevices();
+
+            _ = Task.Run(LoadAllOnStartup);
         }
 
-        private void InitializeTimers()
+        private async Task LoadAllOnStartup()
         {
-            _timeTimer.Interval = TimeSpan.FromSeconds(1);
-            _timeTimer.Tick += (s, e) => CurrentTime = DateTime.Now.ToString("HH:mm:ss");
-            _timeTimer.Start();
-
-            _cpuTimer.Interval = TimeSpan.FromSeconds(1);
-            _cpuTimer.Tick += (s, e) => UpdateCpuData();
-            _cpuTimer.Start();
-
-            _processTimer.Interval = TimeSpan.FromSeconds(3);
-            _processTimer.Tick += (s, e) => UpdateProcessesData();
-            _processTimer.Start();
-
-            _driveTimer.Interval = TimeSpan.FromSeconds(5);
-            _driveTimer.Tick += (s, e) => UpdateDriveData();
-            _driveTimer.Start();
+            try { SystemInfo = _sys.GetDetailedSystemInfo(); } catch { }
+            await Task.WhenAll(
+                Task.Run(() => RefreshDrives()),
+                Task.Run(() => RefreshProcesses()),
+                Task.Run(() => LoadDevicesInternal()),
+                Task.Run(() => LoadDriversInternal()),
+                Task.Run(() => LoadAntivirusInfoInternal()),
+                Task.Run(() => LoadInstalledSoftwareInternal()),
+                Task.Run(() => LoadStartupProgramsInternal()),
+                Task.Run(() => LoadNetworkConnectionsInternal()),
+                Task.Run(() => RunSecurityScanInternal())
+            );
         }
- 
 
-      
-        private void LoadInitialData()
+        private void InitTimers()
         {
-            try
-            {
-                SystemInfo = _systemInfoService.GetDetailedSystemInfo();
-                UpdateDriveData();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка загрузки исходных данных: {ex.Message}");
-            }
+            var t1 = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            t1.Tick += (_, __) => CurrentTime = DateTime.Now.ToString("HH:mm:ss  dd.MM.yyyy");
+            t1.Start();
+
+            var t2 = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            t2.Tick += (_, __) => UpdateCpu();
+            t2.Start();
+
+            var t3 = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            t3.Tick += (_, __) => RefreshProcesses();
+            t3.Start();
+
+            var t4 = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            t4.Tick += (_, __) => RefreshDrives();
+            t4.Start();
         }
-        private void InitializeCharts()
+
+        private void InitChart()
         {
             CpuSeries = new SeriesCollection
-        {
-            new LineSeries
             {
-                Title = "Загрузка ЦП",
-                Values = new ChartValues<double>(),
-                PointGeometry = null,
-                Fill = System.Windows.Media.Brushes.Transparent
-            }
-        };
-            for (int i = 0; i < 20; i++)
-            {
-                CpuSeries[0].Values.Add(0.0);
-            }
+                new LineSeries
+                {
+                    Values = new ChartValues<double>(Enumerable.Repeat(0.0, 30)),
+                    PointGeometry = null,
+                    Fill = System.Windows.Media.Brushes.Transparent,
+                    Stroke = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(59, 130, 246)),
+                    StrokeThickness = 2
+                }
+            };
         }
 
-        private void UpdateCpuData()
+        private void UpdateCpu()
         {
             try
             {
-                var cpuUsage = _systemInfoService.GetCurrentCpuUsage();
-                Application.Current.Dispatcher.Invoke(() =>
+                var v = _sys.GetCurrentCpuUsage();
+                if (CpuSeries.Count > 0 && CpuSeries[0]?.Values != null)
                 {
-                    if (CpuSeries.Count > 0 && CpuSeries[0] != null)
-                    {
-                        CpuSeries[0].Values.Add(cpuUsage);
-                        if (CpuSeries[0].Values.Count > 20)
-                            CpuSeries[0].Values.RemoveAt(0);
-                    }
-                });
+                    CpuSeries[0].Values.Add(v);
+                    if (CpuSeries[0].Values.Count > 30) CpuSeries[0].Values.RemoveAt(0);
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка обновления CPU:   {ex.Message}");
-            }
+            catch { }
         }
-        private async void UpdateProcessesData()
+
+        private void RefreshProcesses()
         {
             try
             {
-                var procs = await Task.Run(() => _systemInfoService.GetRunningProcesses());
-                Application.Current.Dispatcher.Invoke(() =>
+                var list = _sys.GetRunningProcesses();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
                     Processes.Clear();
-                    foreach (var p in procs) Processes.Add(p);
+                    foreach (var p in list) Processes.Add(p);
                     TotalProcessesCount = Processes.Count;
                 });
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка обновления данных процессов: {ex.Message}");
-            }
+            catch { }
         }
-        [RelayCommand]
-        private async Task KillProcess(ProcessInfo process)
-        {
-            if (process == null) return;
-            try
-            {
-                if (!process.IsUserProcess)
-                {
-                    MessageBox.Show(
-                        $"Процесс '{process.Name}' является системным и не может быть завершен.\n\n" +
-                        "Завершение системных процессов может привести к нестабильной работе системы или её зависанию!",
-                        "Системный процесс",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                    return;
-                }
-                var result = MessageBox.Show(
-                    $"Вы уверены, что хотите завершить процесс?\n\n" +
-                    $"Имя: {process.Name}\n" +
-                    $"ID: {process.Id}\n" +
-                    $"ЦП: {process.Cpu:F1}%\n" +
-                    $"Память: {process.MemoryMB:F1} МБ\n" +
-                    $"Путь: {process.ProcessPath}\n\n" +
-                    $" ⚠ ️ Убедитесь, что это не системный процесс!",
-                    "Подтверждение завершения процесса",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (result == MessageBoxResult.Yes)
-                {
-                    bool success = _systemInfoService.KillProcess(process.Id);
-                    if (success)
-                    {
-                     
-                        var processToRemove = Processes.FirstOrDefault(p => p.Id == process.Id);
-                        if (processToRemove != null) Processes.Remove(processToRemove);
 
-
-                        TotalProcessesCount = Processes.Count;
-
-                        MessageBox.Show(
-                            $"Процесс '{process.Name}' успешно завершен.",
-                            "Процесс завершен",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                        await Task.Delay(1000);
-                        UpdateProcessesData(); 
-                    }
-                    else
-                    {
-                        MessageBox.Show(
-                            $"Не удалось завершить процесс '{process.Name}'.\n" +
-                            "Возможно, процесс уже завершен или недостаточно прав.",
-                            "Ошибка",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Ошибка при завершении процесса: {ex.Message}",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        private async void UpdateDriveData()
+        private void RefreshDrives()
         {
             try
             {
-                await Task.Run(() =>
+                var list = _sys.GetDriveInfo();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    var newDrives = _systemInfoService.GetDriveInfo();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        Drives.Clear();
-                        foreach (var drive in newDrives)
-                        {
-                            Drives.Add(drive);
-                        }
-                    });
+                    Drives.Clear();
+                    foreach (var d in list) Drives.Add(d);
                 });
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка UpdateDriveData: {ex.Message}");
-            }
+            catch { }
         }
 
-        [RelayCommand]
-        private void OpenDriveInExplorer(DriveInfoModel drive)
+        private void LoadDevicesInternal()
         {
-            if (drive == null || string.IsNullOrEmpty(drive.Name)) return;
             try
             {
-                Process.Start(new ProcessStartInfo
+                var list = _dev.GetConnectedDevices();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    FileName = drive.Name, 
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Не удалось открыть {drive.Name}: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        [RelayCommand]
-        private async Task LoadDrivers()
-        {
-            try
-            {
-                DriverStatus = "Получение списка драйверов...";
-                await Task.Run(() =>
-                {
-                    var driverList = _driverService.GetInstalledDrivers();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        Drivers.Clear();
-                        foreach (var driver in driverList)
-                        {
-                            Drivers.Add(driver);
-                        }
-                        DriverStatus = $"Загружено {Drivers.Count} драйверов";
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-              
-                Debug.WriteLine($"Ошибка загрузки драйверов: {ex.Message}");
-            }
-        }
-
-      
-        [RelayCommand]
-        private async Task CheckDriverUpdates()
-        {
-            try
-            {
-                DriverStatus = "Проверка обновлений драйверов...";
-                await Task.Run(() =>
-                {
-                    var outdatedDrivers = _driverService.CheckOutdatedDrivers();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        foreach (var driver in Drivers)
-                        {
-                            var outdatedDriver = outdatedDrivers.FirstOrDefault(d => d.Name == driver.Name);
-                            if (outdatedDriver != null)
-                            {
-                                driver.IsOutdated = true;
-                                driver.UpdateStatus = "Требуется обновление";
-                                driver.RiskLevel = outdatedDriver.RiskLevel;
-                            }
-                            else
-                            {
-                                driver.IsOutdated = false;
-                                driver.UpdateStatus = "Актуальный";
-                                driver.RiskLevel = "Низкий";
-                            }
-                        }
-                        DriverStatus = outdatedDrivers.Count > 0 ? $"Устаревших: {outdatedDrivers.Count}" : "Все драйверы в порядке";
-
-                        if ( outdatedDrivers.Count > 0)
-                            MessageBox.Show($"Найдено устаревших драйверов: {outdatedDrivers.Count}. Проверьте список (подсвечены красным).", "Драйверы", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-               
-                Debug.WriteLine($"Ошибка проверки драйверов: {ex.Message}");
-            }
-        }
-
-
-
-        [RelayCommand]
-        private void OpenDeviceManager()
-        {
-            try
-            {
-                // Вызываем OpenDeviceSettings без ID, чтобы просто открыть devmgmt.msc
-                _deviceService.OpenDeviceSettings(string.Empty);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Не удалось открыть Диспетчер устройств: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-
-        private void OnDeviceListChanged(object? sender, EventArgs e)
-        {
-            // Запускаем обновление в фоне, чтобы не фризить UI
-            Task.Run(() => LoadDevices(isAutoUpdate: true));
-        }
-
-        [RelayCommand]
-        private async Task LoadDevices(bool isAutoUpdate = false)
-        {
-            try
-            {
-                if (!isAutoUpdate) DeviceStatus = "Сканирование...";
-
-                var currentDevices = _deviceService.GetConnectedDevices();
-
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                   
-                    var newDevices = currentDevices.Where(d => !Devices.Any(old => old.DeviceID == d.DeviceID)).ToList();
-
-
                     Devices.Clear();
-                    foreach (var d in currentDevices) Devices.Add(d);
-
-                    UpdateVulnerableDevices(); 
-
-                    if (isAutoUpdate && newDevices.Any())
-                    {
-                        var names = string.Join(", ", newDevices.Select(x => x.Name));
-                        DeviceStatus = $"Обнаружено новое устройство: {names}";
-
-                        foreach (var nd in newDevices)
-                        {
-                            SecurityEvents.Insert(0, new SecurityEvent
-                            {
-                                TimeGenerated = DateTime.Now,
-                                EventType = "Устройство",
-                                Source = "DeviceMonitor",
-                                Description = $"Подключено: {nd.Name} ({nd.Category})",
-                                Severity = nd.IsSafe ? "Информация" : "Внимание"
-                            });
-
-                           
-                            if (!nd.IsSafe) NewlyConnectedDevices.Add(nd);
-                        }
-                    }
-                    else
-                    {
-                        DeviceStatus = $"Устройств: {Devices.Count}. Мониторинг активен.";
-                    }
-
-                    OnPropertyChanged(nameof(DisplayedDevices));
+                    foreach (var d in list) Devices.Add(d);
+                    DeviceStatus = $"Устройств: {Devices.Count}";
                 });
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка загрузки устройства: {ex.Message}");
-            }
+            catch { }
         }
 
-
-
-        private void UpdateVulnerableDevices()
+        private void LoadDriversInternal()
         {
-            VulnerableDevices.Clear();
-            var vulnerable = Devices.Where(d => !d.IsSafe ||
-                d.VulnerabilityStatus != "Без уязвимостей" &&
-                d.VulnerabilityStatus != "Не проверено").ToList();
-            foreach (var device in vulnerable)
-            {
-                VulnerableDevices.Add(device);
-            }
-        }
-        [RelayCommand]
-        private void ShowOnlyVulnerableDevicesToggle()
-        {
-            ShowOnlyVulnerableDevices = !ShowOnlyVulnerableDevices;
-            OnPropertyChanged(nameof(DisplayedDevices));
-        }
-        partial void OnShowOnlyVulnerableDevicesChanged(bool value)
-        {
-            OnPropertyChanged(nameof(DisplayedDevices));
-        }
-        [RelayCommand]
-        private void OpenDeviceProperties(DeviceInfo device)
-        {
-            if (device == null) return;
             try
             {
-                _deviceService.OpenDeviceSettings(device.DeviceID);
-                DeviceStatus = "Открыт диспетчер устройств";
-                MessageBox.Show(
-                    "Диспетчер устройств открыт. Вы можете просмотреть свойства любого устройства.",
-                    "Диспетчер устройств",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Не удалось открыть диспетчер устройств: {ex.Message}",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        private void OpenDeviceSettings(DeviceInfo device)
-        {
-            if (device == null) return;
-            try
-            {
-                _deviceService.OpenDeviceSettings(device.DeviceID);
-                DeviceStatus = $"Открыты настройки устройства: {device.Name}";
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Не удалось открыть настройки устройства: {ex.Message}\n\n" +
-                    "Рекомендации:\n" +
-                    "1. Запустите программу от имени администратора\n" +
-                    "2. Проверьте, что оснастка 'devmgmt.msc' доступна в системе\n" +
-                    "3. Попробуйте открыть диспетчер устройств вручную через Панель управления",
-                    "Ошибка открытия настроек",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        private void EjectDevice(DeviceInfo device)
-        {
-            if (device == null) return;
-            try
-            {
-                if (device.IsRemovable)
+                var list = _drv.GetInstalledDrivers();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    var result = MessageBox.Show(
-                        $"Безопасно извлечь устройство '{device.Name}'?",
-                        "Извлечение устройства",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        _deviceService.EjectDevice(device.DeviceID);
-                        DeviceStatus = $"Устройство {device.Name} подготовлено к извлечению";
-                        MessageBox.Show(
-                            $"Устройство '{device.Name}' готово к безопасному извлечению.",
-                            "Успех",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
-                }
-                else
-                {
-                    MessageBox.Show(
-                        "Это устройство не может быть извлечено безопасно.\nТолько съемные носители поддерживают извлечение.",
-                        "Неизвлекаемое устройство",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Ошибка извлечения устройства: {ex.Message}",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        private async Task ScanSecurity()
-        {
-            try
-            {
-                IsScanning = true;
-                ScanStatus = "Запуск комплексной проверки безопасности...";
-                await Task.Run(() =>
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        Vulnerabilities.Clear();
-                        ScanStatus = "Проверка обновлений системы...";
-                    });
-                    var vulnerabilities = _securityService.ScanForVulnerabilities();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        foreach (var vuln in vulnerabilities)
-                        {
-                            Vulnerabilities.Add(vuln);
-                        }
-                        ScanStatus = $"Проверка завершена. Найдено {vulnerabilities.Count} уязвимостей";
-                        IsScanning = false;
-                        if (vulnerabilities.Count > 0)
-                        {
-                            MessageBox.Show(
-                                $"Обнаружено {vulnerabilities.Count} потенциальных уязвимостей.\n\nРекомендуется устранить их для повышения безопасности системы.",
-                                "Результат проверки безопасности",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
-                        }
-                        else
-                        {
-                            MessageBox.Show(
-                                "Система защищена! Серьезных уязвимостей не обнаружено.",
-                                "Результат проверки безопасности",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Information);
-                        }
-                    });
+                    Drivers.Clear();
+                    foreach (var d in list) Drivers.Add(d);
+                    DriverStatus = $"Загружено: {Drivers.Count}";
                 });
             }
-            catch (Exception ex)
-            {
-                ScanStatus = "Ошибка проверки безопасности";
-                IsScanning = false;
-                Debug.WriteLine($"Ошибка безопасности сканирования: {ex.Message}");
-            }
+            catch { }
         }
-        [RelayCommand]
-        private async Task StartDefenderScan()
-        {
-            if (IsDefenderScanInProgress) return;
-            try
-            {
-                IsDefenderScanInProgress = true;
-                DefenderScanStatus = "Запуск сканирования...";
 
-                // Запускаем без ожидания прогресса (Fire and forget)
-                var result = await Task.Run(() => _securityService.StartDefenderScanWithProgress(SelectedScanType));
-
-                DefenderScanStatus = result.Success ? "Сканирование запущено в фоне" : "Ошибка запуска";
-
-                // Даем время на инициализацию процесса
-                await Task.Delay(2000);
-            }
-            catch (Exception ex)
-            {
-                DefenderScanStatus = "Ошибка";
-                Debug.WriteLine(ex.Message);
-            }
-            finally
-            {
-                IsDefenderScanInProgress = false;
-            }
-        }
-        [RelayCommand]
-        private async Task LoadDefenderStatus()
+        private void LoadAntivirusInfoInternal()
         {
             try
             {
-                await Task.Run(() =>
+                var av = _sec.GetInstalledAntivirus();
+                var def = _sec.GetDefenderStatus();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    var status = _securityService.GetDefenderStatus();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        DefenderStatus = status;
-                    });
+                    AntivirusInfo = av;
+                    CurrentDefenderStatus = def;
                 });
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка загрузки статуса защитника: {ex.Message}");
-            }
+            catch { }
         }
-        [RelayCommand]
-        private async Task LoadAntivirusInfo()
+
+        private void LoadInstalledSoftwareInternal()
         {
             try
             {
-                await Task.Run(() =>
+                var sw = _sys.GetInstalledSoftware();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    var antivirus = _securityService.GetInstalledAntivirus();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        AntivirusInfo = antivirus;
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка загрузки антивируса: {ex.Message}");
-            }
-        }
-        [RelayCommand]
-        private async Task PerformComprehensiveSecurityScan()
-        {
-            if (IsQuickScanInProgress) return;
-
-            try
-            {
-                IsQuickScanInProgress = true;
-                QuickScanStatus = "Анализ конфигурации системы...";
-
-                var scanTask = Task.Run(() => _securityService.PerformComprehensiveSecurityScan());
-
-
-                var result = await scanTask;
-
-       
-            
-
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    SecurityScanResult = result;
-
-                    // Обновляем списки угроз и проверок
-                    SecurityChecks.Clear();
-                    if (result.SecurityChecks != null)
-                    {
-                       
-                        var sortedChecks = result.SecurityChecks
-                            .OrderByDescending(c => c.IsCritical)
-                            .ThenBy(c => c.Status.Contains("OK"));
-
-                        foreach (var check in sortedChecks) SecurityChecks.Add(check);
-                    }
-
-                    Threats.Clear();
-                    if (result.Threats != null)
-                    {
-                        foreach (var t in result.Threats) Threats.Add(t);
-                    }
-
-                 
-           
-                    OnPropertyChanged(nameof(DisplayedSecurityChecks));
-
-                    // Статус
-                    QuickScanStatus = $"Завершено. Угроз: {result.TotalThreats}, Предупреждений: {result.Warnings}";
-
-                    if (result.CriticalIssues > 0 || result.TotalThreats > 0)
-                    {
-                        MessageBox.Show($"Найдено проблем: {result.CriticalIssues + result.TotalThreats}. Проверьте вкладку 'Безопасность'.", "Сканирование завершено", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-             
-                Debug.WriteLine($"Ошибка сканирования: {ex.Message}");
-            }
-            finally
-            {
-                IsQuickScanInProgress = false;
-            }
-        }
-        [RelayCommand]
-        private void SetSecurityFilterAll()
-        {
-            CurrentSecurityFilter = SecurityFilterType.All;
-            OnPropertyChanged(nameof(DisplayedSecurityChecks));
-        }
-        [RelayCommand]
-        private void SetSecurityFilterRisks()
-        {
-            CurrentSecurityFilter = SecurityFilterType.Risks;
-            OnPropertyChanged(nameof(DisplayedSecurityChecks));
-        }
-        [RelayCommand]
-        private void SetSecurityFilterSafe()
-        {
-            CurrentSecurityFilter = SecurityFilterType.Safe;
-            OnPropertyChanged(nameof(DisplayedSecurityChecks));
-        }
-        [RelayCommand]
-        
-        private async Task UpdateProcessesImmediately()
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    var newProcesses = _systemInfoService.GetRunningProcesses();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        Processes.Clear();
-                        foreach (var process in newProcesses.Take(30))
-                        {
-                            Processes.Add(process);
-                        }
-                        TotalProcessesCount = Processes.Count;
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка немедленного обновления процесса: {ex.Message}");
-            }
-        }
-
-        [RelayCommand]
-        private void OpenDefenderSettings()
-        {
-            try
-            {
-                _securityService.OpenWindowsSecurity();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Не удалось открыть Безопасность Windows: {ex.Message}\n\n" +
-                    "Альтернативные способы:\n" +
-                    "1. Откройте Параметры Windows → Обновление и безопасность → Безопасность Windows\n" +
-                    "2. В поиске Windows найдите 'Безопасность Windows'\n" +
-                    "3. Проверьте, что Защитник Windows не отключен групповой политикой",
-                    "Ошибка открытия Защитника",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        private void EnableDefenderProtection()
-        {
-            try
-            {
-                var result = _securityService.EnableDefenderProtection();
-                if (result)
-                {
-                    MessageBox.Show(
-                        "Защитник Windows успешно включен. Изменения вступят в силу через несколько секунд.",
-                        "Защита включена",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                    Task.Delay(3000).ContinueWith(_ =>
-                    {
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            LoadDefenderStatus();
-                        });
-                    });
-                }
-                else
-                {
-                    MessageBox.Show(
-                        "Не удалось включить Защитник Windows. Возможные причины:\n" +
-                        "1. Отсутствуют права администратора\n" +
-                        "2. Защитник отключен групповой политикой\n" +
-                        "3. Установлено стороннее антивирусное ПО",
-                        "Ошибка включения",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Ошибка включения Защитника: {ex.Message}",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-
-        [RelayCommand]
-        private void OpenAntivirus()
-        {
-            try
-            {
-                _securityService.OpenAntivirusUI();
-            }
-            catch (Exception ex)
-            {
-             
-                MessageBox.Show(
-                    $"Не удалось запустить программу антивируса: {ex.Message}\n\n" +
-                    "Будет открыт стандартный центр 'Безопасность Windows'.",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        
-        private async Task GenerateReport()
-        {
-            try
-            {
-                
-                var reportData = new ReportData
-                {
-                    SystemInfo = SystemInfo,
-                    TopProcesses = Processes.Take(10).ToList(),
-                    Drives = Drives.ToList(),
-                    Drivers = Drivers.ToList(),
-                    Devices = Devices.ToList(),
-                    ReportDate = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"),
-
-                   
-                    SecurityChecks = SecurityScanResult.SecurityChecks ?? new List<SecurityCheck>(),
-                    Threats = SecurityScanResult.Threats ?? new List<SecurityThreat>(),
-
-                   
-                    OverallSecurityStatus = SecurityScanResult.OverallStatus,
-                    CriticalIssuesCount = SecurityScanResult.CriticalIssues,
-                    TotalSecurityIssues = SecurityScanResult.TotalThreats + SecurityScanResult.CriticalIssues + SecurityScanResult.Warnings,
-
-                   
-                    Vulnerabilities = (SecurityScanResult.Threats ?? new List<SecurityThreat>()).Select(t => new SecurityVulnerability
-                    {
-                        Title = t.Name,
-                        Description = t.Description,
-                        Severity = t.Severity,
-                        Category = t.Type,
-                        Recommendation = t.Recommendation,
-                        IsFixed = t.IsResolved
-                    }).ToList()
-                };
-               
-
-                var saveDialog = new SaveFileDialog
-                {
-                    Filter = "HTML files (*.html)|*.html|Text files (*.txt)|*.txt",
-                    DefaultExt = ".html"
-                };
-                if (saveDialog.ShowDialog() == true)
-                {
-                    var result = await _reportService.ExportReportToFileAsync(saveDialog.FileName, reportData);
-                    if (result)
-                    {
-                        MessageBox.Show(
-                            $"Отчет успешно сохранен: {saveDialog.FileName}",
-                            "Отчет сформирован",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show(
-                            "Не удалось сохранить отчет",
-                            "Ошибка",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    $"Ошибка при формировании отчета: {ex.Message}",
-                    "Ошибка",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        [RelayCommand]
-        private async Task LoadInstalledSoftware()
-        {
-            try
-            {
-                var sw = await Task.Run(() => _systemInfoService.GetInstalledSoftware());
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    InstalledSoftware.Clear(); // Используем Свойство
+                    InstalledSoftware.Clear();
                     foreach (var s in sw) InstalledSoftware.Add(s);
                 });
             }
             catch { }
         }
-        [RelayCommand]
-        private async Task LoadStartupPrograms()
+
+        private void LoadStartupProgramsInternal()
         {
             try
             {
-                var progs = await Task.Run(() => _systemInfoService.GetStartupPrograms());
-                Application.Current.Dispatcher.Invoke(() =>
+                var p = _sys.GetStartupPrograms();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    StartupPrograms.Clear(); // Используем Свойство
-                    foreach (var p in progs) StartupPrograms.Add(p);
+                    StartupPrograms.Clear();
+                    foreach (var x in p) StartupPrograms.Add(x);
                 });
             }
             catch { }
         }
 
-        [RelayCommand]
-        private async Task LoadNetworkConnections()
+        private void LoadNetworkConnectionsInternal()
         {
             try
             {
-                var nets = await Task.Run(() => _systemInfoService.GetActiveNetworkConnections());
-                Application.Current.Dispatcher.Invoke(() =>
+                var n = _sys.GetActiveNetworkConnections();
+                Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    NetworkConnections.Clear(); // Используем Свойство
-                    foreach (var n in nets) NetworkConnections.Add(n);
+                    NetworkConnections.Clear();
+                    foreach (var x in n) NetworkConnections.Add(x);
                 });
             }
             catch { }
         }
 
+        private void RunSecurityScanInternal()
+        {
+            try
+            {
+                var r = _sec.PerformComprehensiveSecurityScan();
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    SecurityScanResult = r;
+                    SecurityChecks.Clear();
+                    foreach (var c in r.SecurityChecks
+                        .OrderByDescending(c => c.IsCritical)
+                        .ThenBy(c => c.Status.Contains("OK")))
+                        SecurityChecks.Add(c);
+                    Threats.Clear();
+                    foreach (var t in r.Threats) Threats.Add(t);
+                    QuickScanStatus = $"Угроз: {r.TotalThreats}, Предупреждений: {r.Warnings}";
+                });
+            }
+            catch
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                    QuickScanStatus = "Ошибка сканирования");
+            }
+        }
+
+        private void UpdateNetworkCounters()
+        {
+            TotalHostsCount = NetworkHosts.Count;
+            OnlineHostsCount = NetworkHosts.Count(h => h.IsOnline);
+            AuditedHostsCount = NetworkHosts.Count(h => h.SecurityScore >= 0);
+            VulnerableHostsCount = NetworkHosts.Count(h => h.SecurityScore >= 0 && h.SecurityScore < 70);
+        }
+
+        [RelayCommand]
+        private async Task KillProcess(ProcessInfo? p)
+        {
+            if (p == null || !p.IsUserProcess) return;
+
+            if (p.IsSelfProcess)
+            {
+                if (MessageBox.Show("Закрыть программу?", "Подтверждение",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    Application.Current.Shutdown();
+                return;
+            }
+
+            if (MessageBox.Show($"Завершить {p.Name} (PID {p.Id})?", "Подтверждение",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            if (_sys.KillProcess(p.Id))
+            {
+                var item = Processes.FirstOrDefault(x => x.Id == p.Id);
+                if (item != null) Processes.Remove(item);
+                TotalProcessesCount = Processes.Count;
+            }
+            else MessageBox.Show("Не удалось завершить.", "Ошибка",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        [RelayCommand]
+        private void OpenDriveInExplorer(DriveInfoModel? d)
+        {
+            if (d == null) return;
+            try { Process.Start(new ProcessStartInfo { FileName = d.Name, UseShellExecute = true }); }
+            catch { }
+        }
+
+        [RelayCommand]
+        private async Task LoadDrivers()
+        {
+            DriverStatus = "Загрузка...";
+            await Task.Run(() => LoadDriversInternal());
+        }
+
+        [RelayCommand]
+        private async Task CheckDriverUpdates()
+        {
+            DriverStatus = "Проверка...";
+            var outdated = await Task.Run(() => _drv.CheckOutdatedDrivers());
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                foreach (var d in Drivers)
+                {
+                    var m = outdated.FirstOrDefault(o => o.Name == d.Name);
+                    d.IsOutdated = m != null;
+                    d.UpdateStatus = m != null ? "Требуется обновление" : "Актуальный";
+                    d.RiskLevel = m?.RiskLevel ?? "Низкий";
+                }
+                DriverStatus = outdated.Count > 0
+                    ? $"Устаревших: {outdated.Count}" : "Все актуальны";
+            });
+        }
+
+        [RelayCommand]
+        private async Task LoadDevices()
+        {
+            DeviceStatus = "Сканирование...";
+            await Task.Run(() => LoadDevicesInternal());
+        }
+
+        [RelayCommand]
+        private void OpenDeviceManager()
+        {
+            try { _dev.OpenDeviceSettings(""); }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        [RelayCommand]
+        private void EjectDevice(DeviceInfo? d)
+        {
+            if (d?.IsRemovable != true) { MessageBox.Show("Устройство не съёмное."); return; }
+            try { _dev.EjectDevice(d.DeviceID); DeviceStatus = $"{d.Name} — извлечение"; }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        [RelayCommand]
+        private async Task PerformComprehensiveSecurityScan()
+        {
+            if (IsQuickScanInProgress) return;
+            IsQuickScanInProgress = true;
+            QuickScanStatus = "Анализ...";
+            await Task.Run(() => RunSecurityScanInternal());
+            IsQuickScanInProgress = false;
+        }
+
+        [RelayCommand]
+        private async Task RefreshAntivirusInfo() =>
+            await Task.Run(() => LoadAntivirusInfoInternal());
+
+        [RelayCommand]
+        private void OpenDefenderSettings()
+        {
+            try { _sec.OpenWindowsSecurity(); }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        [RelayCommand]
+        private void EnableDefenderProtection()
+        {
+            var ok = _sec.EnableDefenderProtection();
+            MessageBox.Show(ok ? "Защита включена." : "Не удалось включить.",
+                ok ? "OK" : "Ошибка");
+            if (ok) _ = Task.Run(() => LoadAntivirusInfoInternal());
+        }
+
+        [RelayCommand]
+        private void OpenAntivirus()
+        {
+            try { _sec.OpenAntivirusUI(); }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        [RelayCommand]
+        private void UpdateProcessesImmediately() => RefreshProcesses();
+
+        [RelayCommand]
+        private async Task LoadInstalledSoftware() =>
+            await Task.Run(() => LoadInstalledSoftwareInternal());
+
+        [RelayCommand]
+        private async Task LoadStartupPrograms() =>
+            await Task.Run(() => LoadStartupProgramsInternal());
+
+        [RelayCommand]
+        private async Task LoadNetworkConnections() =>
+            await Task.Run(() => LoadNetworkConnectionsInternal());
 
         [RelayCommand]
         private void OpenStartupSettings()
         {
+            try { Process.Start(new ProcessStartInfo { FileName = "ms-settings:startupapps", UseShellExecute = true }); }
+            catch { try { Process.Start("shell:startup"); } catch { } }
+        }
+
+        [RelayCommand]
+        private async Task DiscoverHosts()
+        {
+            if (IsNetworkScanning) return;
+
+            if (!Helpers.SecurityHelper.IsValidIpAddress(StartIp)
+                || !Helpers.SecurityHelper.IsValidIpAddress(EndIp))
+            {
+                MessageBox.Show(
+                    "Введите корректные IP-адреса.",
+                    "Ошибка ввода",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!Helpers.SecurityHelper.IsValidIpRange(StartIp, EndIp))
+            {
+                MessageBox.Show(
+                    "Некорректный диапазон IP (максимум 1024 адреса).",
+                    "Ошибка ввода",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            IsNetworkScanning = true;
+            NetworkScanStatus = "Обнаружение хостов...";
+            NetworkHosts.Clear();
+            _scanCts?.Cancel();
+            _scanCts = new CancellationTokenSource();
+
             try
             {
-                Process.Start(new ProcessStartInfo
+                var hosts = await _net.DiscoverHostsAsync(
+                    StartIp, EndIp, _scanCts.Token);
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    FileName = "ms-settings:startupapps",
-                    UseShellExecute = true
+                    foreach (var h in hosts.Where(h => h.IsOnline))
+                        NetworkHosts.Add(h);
+                    UpdateNetworkCounters();
+                    NetworkScanStatus =
+                        $"Найдено: {OnlineHostsCount} онлайн " +
+                        $"из {hosts.Count} адресов";
                 });
             }
-            catch (Exception)
+            catch (OperationCanceledException)
             {
+                NetworkScanStatus = "Отменено";
+            }
+            catch (Exception ex)
+            {
+                NetworkScanStatus = $"Ошибка: {ex.Message}";
+            }
+            finally { IsNetworkScanning = false; }
+        }
+
+        [RelayCommand]
+        private async Task AuditSelectedHosts()
+        {
+            var selected = NetworkHosts
+                .Where(h => h.IsSelected && h.IsOnline)
+                .ToList();
+
+            if (!selected.Any())
+            {
+                MessageBox.Show(
+                    "Выберите хосты для аудита галочками.",
+                    "Внимание",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var sanitizedUser =
+                Helpers.SecurityHelper.SanitizeUsername(NetworkUsername);
+            if (string.IsNullOrEmpty(sanitizedUser))
+            {
+                MessageBox.Show(
+                    "Введите корректный логин администратора.",
+                    "Внимание",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(NetworkPassword))
+            {
+                MessageBox.Show(
+                    "Введите пароль.",
+                    "Внимание",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            IsNetworkScanning = true;
+            int done = 0;
+
+            foreach (var host in selected)
+            {
+                if (!Helpers.SecurityHelper.IsValidIpAddress(host.IpAddress))
+                    continue;
+
+                host.IsScanning = true;
+                host.Status = "Аудит...";
+                NetworkScanStatus =
+                    $"Аудит {++done}/{selected.Count}: {host.IpAddress}";
+
                 try
                 {
-                    Process.Start("shell:startup");
+                    var result = await _net.RemoteAuditAsync(
+                        host.IpAddress,
+                        sanitizedUser,
+                        NetworkPassword,
+                        Helpers.SecurityHelper.SanitizeDomain(NetworkDomain));
+
+                    host.ScanResult = result;
+                    host.SecurityScore =
+                        _net.CalculateSecurityScore(result);
+                    host.Status = result.OverallStatus;
+                    host.ScanDetails =
+                        $"Угроз: {result.TotalThreats}, " +
+                        $"Критич: {result.CriticalIssues}";
+
+                    var osCheck = result.SecurityChecks
+                        .FirstOrDefault(
+                            c => c.CheckName.Contains("Операционная"));
+                    if (osCheck != null) host.OsVersion = osCheck.Details;
                 }
-                catch (Exception ex2)
+                catch (Exception ex)
                 {
-                    MessageBox.Show($"Не удалось открыть настройки автозагрузки: {ex2.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    host.Status = "Ошибка";
+                    host.ScanDetails = ex.Message;
+                    host.SecurityScore = 0;
                 }
+                finally { host.IsScanning = false; }
+            }
+
+            Application.Current.Dispatcher.Invoke(UpdateNetworkCounters);
+            IsNetworkScanning = false;
+            NetworkScanStatus = $"Аудит завершён — проверено: {done}";
+        }
+
+        [RelayCommand]
+        private void SelectAllHosts()
+        {
+            foreach (var h in NetworkHosts) h.IsSelected = true;
+        }
+
+        [RelayCommand]
+        private void DeselectAllHosts()
+        {
+            foreach (var h in NetworkHosts) h.IsSelected = false;
+        }
+
+     
+
+        [RelayCommand]
+        private async Task GenerateReport()
+        {
+            var optWin = new ReportOptionsWindow(isNetworkReport: false);
+            optWin.Owner = Application.Current.MainWindow;
+            if (optWin.ShowDialog() != true)
+                return;
+
+            var options = optWin.Options;
+
+            var data = new ReportData
+            {
+                SystemInfo = SystemInfo,
+                TopProcesses = Processes.Take(10).ToList(),
+                Drives = Drives.ToList(),
+                Drivers = Drivers.ToList(),
+                Devices = Devices.ToList(),
+                NetworkHosts = NetworkHosts.ToList(),
+                ReportDate = DateTime.Now.ToString("dd.MM.yyyy HH:mm"),
+                SecurityChecks = SecurityScanResult.SecurityChecks ?? new(),
+                Threats = SecurityScanResult.Threats ?? new(),
+                OverallSecurityStatus = SecurityScanResult.OverallStatus,
+                CriticalIssuesCount = SecurityScanResult.CriticalIssues,
+                TotalSecurityIssues = SecurityScanResult.TotalThreats
+                                      + SecurityScanResult.CriticalIssues
+            };
+
+            var dlg = new SaveFileDialog
+            {
+                Filter = "HTML (*.html)|*.html",
+                DefaultExt = ".html",
+                FileName = $"SystemReport_{DateTime.Now:yyyyMMdd_HHmm}"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                var ok = await _rpt.ExportReportToFileAsync(
+                    dlg.FileName, data, options);
+                if (ok)
+                {
+                    if (MessageBox.Show(
+                        $"Сохранено: {dlg.FileName}\nОткрыть?",
+                        "Отчёт",
+                        MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = dlg.FileName,
+                                UseShellExecute = true
+                            });
+                        }
+                        catch { }
+                }
+                else MessageBox.Show("Ошибка сохранения.");
             }
         }
 
         [RelayCommand]
-        private async Task RefreshAntivirusInfo()
+        private async Task GenerateNetworkReport()
         {
-            await LoadAntivirusInfo();
+            var hosts = NetworkHosts.ToList();
+            if (!hosts.Any())
+            {
+                MessageBox.Show("Сначала выполните сканирование сети.");
+                return;
+            }
+
+            var optWin = new ReportOptionsWindow(isNetworkReport: true);
+            optWin.Owner = Application.Current.MainWindow;
+            if (optWin.ShowDialog() != true)
+                return;
+
+            var options = optWin.Options;
+
+            var dlg = new SaveFileDialog
+            {
+                Filter = "HTML (*.html)|*.html",
+                DefaultExt = ".html",
+                FileName = $"NetworkAudit_{DateTime.Now:yyyyMMdd_HHmm}"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                var ok = await _rpt.ExportNetworkReportAsync(
+                    dlg.FileName, hosts, options);
+                if (ok)
+                {
+                    if (MessageBox.Show(
+                        $"Сохранено: {dlg.FileName}\nОткрыть?",
+                        "Отчёт",
+                        MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = dlg.FileName,
+                                UseShellExecute = true
+                            });
+                        }
+                        catch { }
+                }
+                else MessageBox.Show("Ошибка сохранения.");
+            }
         }
         [RelayCommand]
         private void ShowAbout()
         {
             MessageBox.Show(
-                "Security Shield v1.0\n\n" +
-                "Проект по информационной безопасности.\n\n" +
-                "Расширенные функции:\n" +
-                "- Мониторинг системы в реальном времени\n" +
-                "- Контроль за драйверами и устройствами\n" +
-                "- Проверка безопасности\n" +
-                "- Анализ уязвимостей системы\n" +
-                "- Детальная отчетность",
-                "О программе",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-        public override bool Equals(object? obj)
-        {
-            return base.Equals(obj);
-        }
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-        public override string? ToString()
-        {
-            return base.ToString();
-        }
-        protected override void OnPropertyChanged(PropertyChangedEventArgs e)
-        {
-            base.OnPropertyChanged(e);
-        }
-        protected override void OnPropertyChanging(PropertyChangingEventArgs e)
-        {
-            base.OnPropertyChanging(e);
+                "System Inspector\n\n" +
+                "Дипломный проект - инструмент сетевого и системного администратора:\n\n" +
+                "• Мониторинг системы и процессов\n" +
+                "• Безагентный аудит безопасности по сети (WMI)\n" +
+                "• Обнаружение хостов и оценка защищённости\n" +
+                "• Массовое устранение уязвимостей\n" +
+                "• Анализ сетевых подключений\n" +
+                "• Контроль оборудования и драйверов\n" +
+                "• Генерация HTML-отчётов",
+                "О программе");
         }
     }
-    
 }

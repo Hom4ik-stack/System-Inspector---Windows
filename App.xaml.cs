@@ -9,26 +9,15 @@ namespace SecurityShield
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
-            // Создаем сервисы
-            var systemInfoService = new SystemInfoService();
-            var driverService = new DriverService();
-            var deviceService = new DeviceService();
-            var securityService = new SecurityService();
-            var reportService = new ReportService();
-
-            // Создаем главную ViewModel
-            var mainViewModel = new MainViewModel(
-                systemInfoService,
-                driverService,
-                deviceService,
-                securityService,
-                reportService);
-
-            // Создаем главное окно
-            var mainWindow = new MainWindow();
-            mainWindow.DataContext = mainViewModel;
-            mainWindow.Show();
+            var vm = new MainViewModel(
+                new SystemInfoService(),
+                new DriverService(),
+                new DeviceService(),
+                new SecurityService(),
+                new ReportService(),
+                new NetworkScanService());
+            var w = new MainWindow { DataContext = vm };
+            w.Show();
         }
     }
 }

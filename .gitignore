@@ -1,6 +1,21 @@
+## Visual Studio Temp Files
+.vs/
 [Bb]in/
 [Oo]bj/
-.vs/
 *.user
-*.suo
-*.userprefs
+*.userosscache
+*.sln.docstates
+
+## NuGet Packages
+packages/
+*.nuget.props
+*.nuget.targets
+
+## Results and Reports
+*.log
+*.tmp
+TestResults/
+
+## OS specific files
+.DS_Store
+Thumbs.db

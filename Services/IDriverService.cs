@@ -1,6 +1,5 @@
 ﻿using SecurityShield.Models;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace SecurityShield.Services
 {
@@ -8,7 +7,5 @@ namespace SecurityShield.Services
     {
         List<DriverInfo> GetInstalledDrivers();
         List<DriverInfo> CheckOutdatedDrivers();
-   
-     
     }
 }

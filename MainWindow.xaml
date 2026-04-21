@@ -1,878 +1,885 @@
 ﻿<Window x:Class="SecurityShield.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
-        xmlns:converters="clr-namespace:SecurityShield.Converters"
-        xmlns:local="clr-namespace:SecurityShield"
-        mc:Ignorable="d"
-        Title="Security Shield: System Inspector"
-        Height="800" Width="1200"
-        WindowStartupLocation="CenterScreen"
-        Background="#FFF0F0F0">
-
-    <Window.Resources>
-        <!-- Конвертеры -->
-        <converters:BytesToGBConverter x:Key="BytesToGBConverter"/>
-        <converters:SeverityToColorConverter x:Key="SeverityToColorConverter"/>
-        <converters:BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-        <converters:BoolToTextConverter x:Key="BoolToTextConverter"/>
-        <converters:ContainsStringVisibilityConverter x:Key="ContainsStringVisibilityConverter"/>
-        <converters:PercentageToBrushConverter x:Key="PercentageToBrushConverter"/>
-
-        <!-- Стили -->
-        <Style TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-
-        <!-- Стиль для кнопки завершения процесса -->
-        <Style x:Key="KillButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF28A745"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#FF6C757D"/>
-                    <Setter Property="Foreground" Value="#FFE9ECEF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="PropertiesButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF6F42C1"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="#FF0078D7"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style TargetType="TabControl">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-
-        <Style TargetType="TabItem">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="15,8"/>
-        </Style>
-
-        <!-- Стиль для кнопки обновления драйвера -->
-        <Style x:Key="UpdateButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF28A745"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#FF6C757D"/>
-                    <Setter Property="Foreground" Value="#FFE9ECEF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Стиль для кнопки извлечения устройства -->
-        <Style x:Key="EjectButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF6F42C1"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <!-- Стиль для кнопки настроек устройства -->
-        <Style x:Key="SettingsButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF17A2B8"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <!-- Стиль для уязвимостей -->
-        <Style x:Key="VulnerabilityItemStyle" TargetType="Border">
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#FFDEE2E6"/>
-            <Setter Property="Background" Value="#FFF8F9FA"/>
-            <Setter Property="Margin" Value="0,2"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="CornerRadius" Value="4"/>
-        </Style>
-    </Window.Resources>
-
+        Title="System Inspector" Height="820" Width="1280"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource PageBg}">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
 
-        <!-- Заголовок -->
-        <Border Grid.Row="0" Background="#FF2D2D30" Padding="15">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="🛡️" FontSize="20" Margin="0,0,10,0"/>
-                    <TextBlock Text="Security Shield: System Inspector"
-                              Foreground="White" FontSize="16" FontWeight="Bold"/>
+        <Border Background="{StaticResource Sidebar}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="18,20,18,24">
+                    <TextBlock Text="System Inspector" Foreground="White" FontSize="17" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding CurrentTime}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,4,0,0"/>
                 </StackPanel>
-
-                <TextBlock Grid.Column="1" Text="{Binding ScanStatus}"
-                          Foreground="LightYellow" HorizontalAlignment="Center"
-                          VerticalAlignment="Center" FontWeight="SemiBold"/>
-
-                <TextBlock Grid.Column="2" Text="{Binding CurrentTime}"
-                          Foreground="LightGray" VerticalAlignment="Center"/>
-            </Grid>
+                <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,12">
+                    <Button Content="📄 Отчёт" Command="{Binding GenerateReportCommand}" Style="{StaticResource BtnSecondary}" Margin="0,2"/>
+                    <Button Content="ℹ О программе" Command="{Binding ShowAboutCommand}" Style="{StaticResource BtnSecondary}" Margin="0,2"/>
+                </StackPanel>
+                <ListBox x:Name="NavList" Background="Transparent" BorderThickness="0"
+                         SelectedIndex="0" Foreground="#CBD5E1" FontSize="13">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="18,11"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Foreground" Value="#CBD5E1"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Padding="{TemplateBinding Padding}" Background="Transparent">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent}"/>
+                                            </Trigger>
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                    <Condition Property="IsSelected" Value="False"/>
+                                                </MultiTrigger.Conditions>
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SidebarHover}"/>
+                                            </MultiTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBoxItem Content="  📊  Обзор"/>
+                    <ListBoxItem Content="  ⚙  Процессы и ЦП"/>
+                    <ListBoxItem Content="  💾  Хранение"/>
+                    <ListBoxItem Content="  🌐  Сеть"/>
+                    <ListBoxItem Content="  🔧  Оборудование"/>
+                    <ListBoxItem Content="  🛡  Безопасность"/>
+                    <ListBoxItem Content="  📦  ПО и автозагрузка"/>
+                    <ListBoxItem Content="  🌐  Сетевой аудит"/>
+                </ListBox>
+            </DockPanel>
         </Border>
 
-        <!-- Вкладки -->
-        <TabControl Grid.Row="1" Margin="10,8,10,12">
-            <!-- Вкладка 1: О системе -->
-            <TabItem Header="О системе">
-                <ScrollViewer>
-                    <StackPanel Margin="15">
-                        <TextBlock Text="Информация о системе" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Grid Grid.Column="1">
+            <!-- 0: Обзор -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=0}">
+                <StackPanel Margin="20">
+                    <TextBlock Text="Обзор системы" Style="{StaticResource H1}"/>
+                    <Border Style="{StaticResource Card}">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition/>
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Версия ОС:" FontWeight="Bold" Margin="0,5"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SystemInfo.OSVersion}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Имя компьютера:" FontWeight="Bold" Margin="20,5,0,5"/>
-                            <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding SystemInfo.ComputerName}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Сборка:" FontWeight="Bold" Margin="0,5"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SystemInfo.Build}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="1" Grid.Column="2" Text="Доменная группа:" FontWeight="Bold" Margin="20,5,0,5"/>
-                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding SystemInfo.Domain}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Состояние обновлений:" FontWeight="Bold" Margin="0,5"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SystemInfo.UpdateStatus}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Пользователь:" FontWeight="Bold" Margin="20,5,0,5"/>
-                            <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding SystemInfo.UserName}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Оперативная память:" FontWeight="Bold" Margin="0,5"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SystemInfo.TotalRAM}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="3" Grid.Column="2" Text="Материнская плата:" FontWeight="Bold" Margin="20,5,0,5"/>
-                            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding SystemInfo.Motherboard}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Процессор:" FontWeight="Bold" Margin="0,5"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SystemInfo.Processor}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="4" Grid.Column="2" Text="BIOS:" FontWeight="Bold" Margin="20,5,0,5"/>
-                            <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding SystemInfo.BIOS}" Margin="10,5"/>
-
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Сетевые адаптеры:" FontWeight="Bold" Margin="0,5"/>
-                            <StackPanel Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" Margin="10,5">
-                                <ItemsControl ItemsSource="{Binding SystemInfo.NetworkAdapters}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}" Margin="0,1"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                            <StackPanel>
+                                <TextBlock Text="Компьютер" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.ComputerName}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="ОС" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.OSVersion}" Style="{StaticResource Value}" TextWrapping="Wrap"/>
+                                <TextBlock Text="Сборка" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.Build}" Style="{StaticResource Value}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Процессор" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.Processor}" Style="{StaticResource Value}" TextWrapping="Wrap"/>
+                                <TextBlock Text="ОЗУ" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.TotalRAM}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Мат. плата" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.Motherboard}" Style="{StaticResource Value}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Пользователь" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.UserName}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Домен" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.Domain}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Обновления" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding SystemInfo.UpdateStatus}" Style="{StaticResource Value}" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
-                        <GroupBox Header="Установленное программное обеспечение" Margin="0,20,0,0">
-                            <DataGrid ItemsSource="{Binding InstalledSoftware}"
-              AutoGenerateColumns="False"
-              IsReadOnly="True"
-              MaxHeight="300"
-              ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Название" Binding="{Binding DisplayName}" Width="3*"/>
-                                    <DataGridTextColumn Header="Версия" Binding="{Binding DisplayVersion}" Width="1*"/>
-                                    <DataGridTextColumn Header="Издатель" Binding="{Binding Publisher}" Width="2*"/>
-                                    <DataGridTextColumn Header="Дата установки" Binding="{Binding InstallDate}" Width="1*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </GroupBox>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Сетевые адаптеры" Style="{StaticResource H2}"/>
+                            <ItemsControl ItemsSource="{Binding SystemInfo.NetworkAdapters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Margin="0,1" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
 
-            <!-- Вкладка 2: Производительность -->
-            <TabItem Header="Производительность">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="2*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Информация о процессах -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
-                        <TextBlock Text="Активных процессов:" FontWeight="Bold" Margin="0,0,5,0"/>
-                        <TextBlock Text="{Binding TotalProcessesCount}" FontWeight="Bold" Foreground="Blue"/>
-                        <TextBlock Text=" (все работающие процессы системы)"
-                                  FontStyle="Italic" Margin="10,0,0,0" Foreground="Gray"/>
-                    </StackPanel>
-
-                    <!-- График загрузки ЦП -->
-                    <GroupBox Grid.Row="1" Header="Загрузка ЦП в реальном времени" Margin="10">
-                        <lvc:CartesianChart Series="{Binding CpuSeries}" LegendLocation="None" Hoverable="False">
+            <!-- 1: Процессы и ЦП -->
+            <Grid Margin="20" Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=1}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="180"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Border Style="{StaticResource Card}" Margin="0,0,0,6">
+                    <StackPanel>
+                        <TextBlock Text="Загрузка ЦП" Style="{StaticResource H2}"/>
+                        <lvc:CartesianChart Series="{Binding CpuSeries}" Height="120" Hoverable="False" DataTooltip="{x:Null}">
                             <lvc:CartesianChart.AxisX>
-                                <lvc:Axis Title="Время (секунды)" LabelsRotation="15">
+                                <lvc:Axis ShowLabels="False">
                                     <lvc:Axis.Separator>
-                                        <lvc:Separator Step="1"></lvc:Separator>
+                                        <lvc:Separator Step="1" IsEnabled="False"/>
                                     </lvc:Axis.Separator>
                                 </lvc:Axis>
                             </lvc:CartesianChart.AxisX>
                             <lvc:CartesianChart.AxisY>
-                                <lvc:Axis Title="Загрузка (%)" MinValue="0" MaxValue="100">
+                                <lvc:Axis MinValue="0" MaxValue="100" Title="%">
                                     <lvc:Axis.Separator>
-                                        <lvc:Separator Step="10"></lvc:Separator>
+                                        <lvc:Separator Step="25"/>
                                     </lvc:Axis.Separator>
                                 </lvc:Axis>
                             </lvc:CartesianChart.AxisY>
                         </lvc:CartesianChart>
-                    </GroupBox>
-
-                    <!-- Список процессов -->
-                    <GroupBox Grid.Row="2" Header="Все активные процессы системы" Margin="10">
-                        <DataGrid ItemsSource="{Binding Processes}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  SelectionMode="Single"
-                                  EnableRowVirtualization="True"
-                                  EnableColumnVirtualization="True"
-                                  MaxHeight="600">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Имя процесса" Binding="{Binding Name}" Width="2*"/>
-                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="0.5*"/>
-                                <DataGridTextColumn Header="ЦП (%)" Binding="{Binding Cpu, StringFormat=F1}" Width="0.8*">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Cpu}" Value="50">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Cpu}" Value="20">
-                                                    <Setter Property="Foreground" Value="Orange"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Header="Память (МБ)" Binding="{Binding MemoryMB, StringFormat=F1}" Width="1*">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MemoryMB}" Value="500">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding MemoryMB}" Value="100">
-                                                    <Setter Property="Foreground" Value="Orange"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Header="Путь" Binding="{Binding ProcessPath}" Width="3*"/>
-                                <DataGridTextColumn Header="Тип" Width="1*">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="HorizontalAlignment" Value="Center"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsUserProcess}" Value="True">
-                                                    <Setter Property="Foreground" Value="Green"/>
-                                                    <Setter Property="Text" Value="Пользовательский"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsUserProcess}" Value="False">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                    <Setter Property="Text" Value="Системный"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTemplateColumn Header="Действия" Width="1.2*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="Завершить"
-                                                    Command="{Binding DataContext.KillProcessCommand, 
-                                                        RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource KillButtonStyle}"
-                                                    ToolTip="Завершить процесс (только пользовательские процессы)"
-                                                    Visibility="{Binding IsUserProcess, 
-                                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-
-                            <!-- Подсветка строк для пользовательских процессов -->
-                            <DataGrid.RowStyle>
-                                <Style TargetType="DataGridRow">
+                    </StackPanel>
+                </Border>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Процессы" Style="{StaticResource H2}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Run Text="Всего:" Foreground="{StaticResource Muted}"/>
+                        <Run Text="{Binding TotalProcessesCount, Mode=OneWay}" FontWeight="Bold"/>
+                    </TextBlock>
+                    <Button Content="🔄 Обновить" Style="{StaticResource BtnPrimary}" Command="{Binding UpdateProcessesImmediatelyCommand}"/>
+                </StackPanel>
+                <DataGrid Grid.Row="2" ItemsSource="{Binding Processes}" ScrollViewer.VerticalScrollBarVisibility="Auto" EnableRowVirtualization="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="2*"/>
+                        <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="60"/>
+                        <DataGridTextColumn Header="ЦП %" Binding="{Binding Cpu, StringFormat=F1}" Width="70">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsUserProcess}" Value="True">
-                                            <Setter Property="Background" Value="#FFE8F5E8"/>
-                                            <Setter Property="ToolTip" Value="Этот процесс можно безопасно завершить"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsUserProcess}" Value="False">
-                                            <Setter Property="Background" Value="#FFFFE6E6"/>
-                                            <Setter Property="ToolTip" Value="Системный процесс - НЕ рекомендуется завершать"/>
+                                        <DataTrigger Binding="{Binding Cpu, Converter={StaticResource CpuThreshold}}" Value="High">
+                                            <Setter Property="Foreground" Value="{StaticResource Red}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </DataGrid.RowStyle>
-                        </DataGrid>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-
-            <!-- Вкладка 3: Память -->
-            <TabItem Header="Память">
-                <ScrollViewer>
-                    <StackPanel Margin="10">
-                        <TextBlock Text="Информация о дисках" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
-                        <ItemsControl ItemsSource="{Binding Drives}">
-                            <ItemsControl.ItemTemplate>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Память МБ" Binding="{Binding MemoryMB, StringFormat=F0}" Width="90">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MemoryMB, Converter={StaticResource MemThreshold}}" Value="High">
+                                            <Setter Property="Foreground" Value="{StaticResource Red}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Путь" Binding="{Binding ProcessPath}" Width="3*"/>
+                        <DataGridTemplateColumn Header="" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <GroupBox Header="{Binding Name}" Margin="0,5" Padding="10">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Информация о диске -->
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{Binding DriveType}" FontWeight="Bold"/>
-                                                <TextBlock Text="{Binding DriveFormat}"/>
-                                                <TextBlock Text="{Binding TotalSpaceFormatted, StringFormat='Общий размер: {0}'}"/>
-                                                <TextBlock Text="{Binding FreeSpaceFormatted, StringFormat='Свободно: {0}'}"/>
-
-                                                <TextBlock Text="{Binding UsedSpaceFormatted, StringFormat='Использовано: {0}'}"/>
-                                                <TextBlock Text="{Binding UsedPercentage, StringFormat='Заполнение: {0:F1}%', Mode=OneWay}"/>
-                                                <!-- Прогресс-бар -->
-                                                <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}"
-                                                    Maximum="100"
-                                                    Height="20"
-                                                    Margin="0,5,0,0"
-                                                    Foreground="{Binding UsedPercentage, Converter={StaticResource PercentageToBrushConverter}}">
-                                                </ProgressBar>
-                                                <Button Content="  📁   Открыть в Проводнике"
-                                                    Command="{Binding DataContext.OpenDriveInExplorerCommand, 
-                                                    RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Margin="0,10,0,0" HorizontalAlignment="Left"
-                                                    Background="#FF17A2B8"/>
-                                            </StackPanel>
-
-                                            <lvc:PieChart Grid.Column="1"
-                                                         Width="150"
-                                                         Height="150"
-                                                         Margin="10,0,0,0"
-                                                         Series="{Binding DriveSeries}"
-                                                         Hoverable="False">
-                                            </lvc:PieChart>
-                                        </Grid>
-                                    </GroupBox>
+                                    <Button Content="{Binding KillButtonText}"
+                    Style="{StaticResource BtnDanger}"
+                    Padding="6,2" Margin="0" FontSize="11"
+                    Command="{Binding DataContext.KillProcessCommand,
+                        RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    Visibility="{Binding IsUserProcess,
+                        Converter={StaticResource BoolToVis}}"/>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsUserProcess}" Value="True">
+                                    <Setter Property="Background" Value="#F0FFF4"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                </DataGrid>
+            </Grid>
+
+            <!-- 2: Хранение -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=2}">
+                <StackPanel Margin="20">
+                    <TextBlock Text="Дисковые накопители" Style="{StaticResource H1}"/>
+                    <ItemsControl ItemsSource="{Binding Drives}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Card}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Margin="12,0">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="{Binding DriveType}" Foreground="{StaticResource Muted}" Margin="0,0,12,0"/>
+                                                <TextBlock Text="{Binding DriveFormat}" Foreground="{StaticResource Muted}"/>
+                                            </StackPanel>
+                                            <ProgressBar Value="{Binding UsedPercentage, Mode=OneWay}" Maximum="100" Height="12"
+                                                         Foreground="{Binding UsedPercentage, Converter={StaticResource PctBrush}}" Background="#E2E8F0"/>
+                                            <TextBlock FontSize="11" Foreground="{StaticResource Muted}" Margin="0,3,0,0">
+                                                <Run Text="{Binding UsedSpaceFormatted, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding TotalSpaceFormatted, Mode=OneWay}"/>
+                                                <Run Text=" ("/><Run Text="{Binding FreeSpaceFormatted, Mode=OneWay}"/><Run Text=" свободно)"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="📂" Style="{StaticResource BtnPrimary}" VerticalAlignment="Center" Padding="10,6"
+                                                Command="{Binding DataContext.OpenDriveInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" ToolTip="Открыть"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 3: Сеть -->
+            <DockPanel Margin="20" Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=3}">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Text="Активные подключения" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <Button Content="🔄 Обновить" Style="{StaticResource BtnPrimary}" Command="{Binding LoadNetworkConnectionsCommand}"/>
+                </StackPanel>
+                <DataGrid ItemsSource="{Binding NetworkConnections}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Процесс" Width="1.5*">
+                            <DataGridTextColumn.Binding>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Path="ProcessName"/>
+                                    <Binding Path="ProcessId"/>
+                                </MultiBinding>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Удалённый адрес" Binding="{Binding RemoteAddress}" Width="1.5*"/>
+                        <DataGridTextColumn Header="Порт" Binding="{Binding RemotePortDescription}" Width="1.5*"/>
+                        <DataGridTextColumn Header="Назначение" Binding="{Binding ConnectionPurpose}" Width="2*"/>
+                        <DataGridTextColumn Header="Состояние" Binding="{Binding State}" Width="100"/>
+                        <DataGridTextColumn Header="Лок. порт" Binding="{Binding LocalPort}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <!-- 4: Оборудование -->
+            <Grid Margin="20" Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=4}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Драйверы" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="🔄" Style="{StaticResource BtnPrimary}" Command="{Binding LoadDriversCommand}" ToolTip="Обновить"/>
+                    <Button Content="Проверить обновления" Style="{StaticResource BtnWarn}" Command="{Binding CheckDriverUpdatesCommand}"/>
+                    <TextBlock Text="{Binding DriverStatus}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
+                </StackPanel>
+                <DataGrid Grid.Row="1" ItemsSource="{Binding Drivers}" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Драйвер" Binding="{Binding Name}" Width="2.5*"/>
+                        <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer}" Width="1.5*"/>
+                        <DataGridTextColumn Header="Версия" Binding="{Binding Version}" Width="1*"/>
+                        <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="90"/>
+                        <DataGridTextColumn Header="Подпись" Binding="{Binding DigitalSignature}" Width="100"/>
+                        <DataGridTextColumn Header="Статус" Binding="{Binding UpdateStatus}" Width="1.2*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOutdated}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Red}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsOutdated}" Value="False">
+                                            <Setter Property="Foreground" Value="{StaticResource Green}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Устройства" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="🔄" Style="{StaticResource BtnPrimary}" Command="{Binding LoadDevicesCommand}" ToolTip="Обновить"/>
+                    <Button Content="Диспетчер устройств" Style="{StaticResource BtnSecondary}" Command="{Binding OpenDeviceManagerCommand}"/>
+                    <TextBlock Text="{Binding DeviceStatus}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
+                </StackPanel>
+                <DataGrid Grid.Row="3" ItemsSource="{Binding Devices}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Устройство" Binding="{Binding Name}" Width="2.5*"/>
+                        <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="1*"/>
+                        <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer}" Width="1.2*"/>
+                        <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="1*"/>
+                        <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="80"/>
+                        <DataGridTemplateColumn Header="" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="⏏" Style="{StaticResource BtnSecondary}" Padding="6,2" Margin="0" FontSize="11" ToolTip="Извлечь"
+                                            Command="{Binding DataContext.EjectDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVis}}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <!-- 5: Безопасность -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=5}">
+                <StackPanel Margin="20">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Аудит безопасности" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <Button Content="▶ Повторить" Style="{StaticResource BtnSuccess}" Command="{Binding PerformComprehensiveSecurityScanCommand}"
+                                IsEnabled="{Binding IsQuickScanInProgress, Converter={StaticResource InvBool}}"/>
+                        <Button Content="🔄 АВ" Style="{StaticResource BtnPrimary}" Command="{Binding RefreshAntivirusInfoCommand}" ToolTip="Обновить антивирус"/>
+                        <ProgressBar Width="100" Height="14" Margin="8,0" IsIndeterminate="True"
+                                     Visibility="{Binding IsQuickScanInProgress, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{Binding QuickScanStatus}" VerticalAlignment="Center" Margin="8,0" Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- Вкладка 4: Драйверы -->
-            <TabItem Header="Драйверы">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Панель управления драйверами -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="15,10">
-                        <Button Content="Обновить список драйверов" 
-                    Command="{Binding LoadDriversCommand}" 
-                    Margin="0,0,10,0"/>
-                        <Button Content="Проверить обновления драйверов" 
-                    Command="{Binding CheckDriverUpdatesCommand}" 
-                    Margin="0,0,10,0"/>
-
-                        <TextBlock Text="Статус:" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                        <TextBlock Text="{Binding DriverStatus}" VerticalAlignment="Center" 
-                       FontWeight="SemiBold" Foreground="Blue"/>
-                    </StackPanel>
-
-                    <!-- Список драйверов -->
-                    <GroupBox Grid.Row="1" Header="Установленные драйверы" Margin="10">
-                        <DataGrid ItemsSource="{Binding Drivers}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Имя драйвера" Binding="{Binding Name}" Width="3*"/>
-                                <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer}" Width="2*"/>
-                                <DataGridTextColumn Header="Версия" Binding="{Binding Version}" Width="1*"/>
-                                <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="1*"/>
-                                <DataGridTextColumn Header="Класс" Binding="{Binding Class}" Width="1*"/>
-                                <DataGridTextColumn Header="Статус" Binding="{Binding UpdateStatus}" Width="1.5*">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsOutdated}" Value="True">
-                                                    <Setter Property="Foreground" Value="#FFDC3545"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsOutdated}" Value="False">
-                                                    <Setter Property="Foreground" Value="#FF28A745"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-
-            <!-- Вкладка 5: Устройства -->
-            <TabItem Header="Устройства">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="15,10">
-
-                        <TextBlock Text="Статус:" VerticalAlignment="Center" Margin="10,0,5,0" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding DeviceStatus}" VerticalAlignment="Center"
-FontWeight="SemiBold" Foreground="Blue"/>
-                    </StackPanel>
-
-                    <TabControl Grid.Row="1" Margin="10">
-
-                        <TabItem Header=" 🔌  Подключенные устройства">
-                            <DataGrid ItemsSource="{Binding DisplayedDevices}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Устройство" Binding="{Binding Name}" Width="2.5*"/>
-                                    <DataGridTextColumn Header="Тип" Binding="{Binding Category}" Width="1.2*"/>
-                                    <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer}" Width="1.5*"/>
-                                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1*"/>
-
-                                    <DataGridTemplateColumn Header="Действия" Width="2*">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Button Content=" ⚙ ️ Настройки"
-                                        Command="{Binding DataContext.OpenDevicePropertiesCommand,
-                                        RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"
-                                        Style="{StaticResource SettingsButtonStyle}"
-                                        Margin="0,0,5,0"
-                                        ToolTip="Открыть настройки устройства"/>
-                                                    <Button Content=" ⏏ ️ Извлечь"
-                                        Command="{Binding DataContext.EjectDeviceCommand,
-                                        RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"
-                                        Style="{StaticResource EjectButtonStyle}"
-                                        Visibility="{Binding IsRemovable,
-                                        Converter={StaticResource BoolToVisibilityConverter}}"
-                                        ToolTip="Безопасное извлечение устройства"/>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-
-
-                        <TabItem Header="  🌐   Сетевые подключения (Netstat)">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
-                                    <Button Content="  🔄   Обновить подключения"
-                                Command="{Binding LoadNetworkConnectionsCommand}"/>
-                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0" FontStyle="Italic" Foreground="Gray">
-                            Показывает установленные подключения к внешним серверам (кроме localhost).
-                                    </TextBlock>
-                                </StackPanel>
-
-                                <DataGrid Grid.Row="1" ItemsSource="{Binding NetworkConnections}"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Процесс (PID)" Width="1.5*">
-                                            <DataGridTextColumn.Binding>
-                                                <MultiBinding StringFormat="{}{0} ({1})">
-                                                    <Binding Path="ProcessName"/>
-                                                    <Binding Path="ProcessId"/>
-                                                </MultiBinding>
-                                            </DataGridTextColumn.Binding>
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Внешний адрес" Binding="{Binding RemoteAddress}" Width="2*"/>
-                                        <DataGridTextColumn Header="Удаленный порт" Binding="{Binding RemotePortDescription}" Width="1.5*"/>
-                                        <DataGridTextColumn Header="Назначение" Binding="{Binding ConnectionPurpose}" Width="2*"/>
-                                        <DataGridTextColumn Header="Локальный порт" Binding="{Binding LocalPortDescription}" Width="2*"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
-                        </TabItem>
-
-                    </TabControl>
-                </Grid>
-            </TabItem>
-            <!-- Вкладка 6: Автозагрузка -->
-            <TabItem Header="Автозагрузка и Фон">
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="15*"/>
-                        <ColumnDefinition Width="278*"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,10,10,10" Grid.ColumnSpan="2">
-                        <Button Content="  🔄   Обновить список автозагрузки"
-Command="{Binding LoadStartupProgramsCommand}"
-HorizontalAlignment="Left"/>
-                        <Button Content="  ⚙  ️ Открыть настройки автозагрузки"
-Command="{Binding OpenStartupSettingsCommand}"
-Margin="10,0,0,0" Background="#FF17A2B8"/>
-                    </StackPanel>
-                    <GroupBox Grid.Row="1" Header="Программы, запускаемые при старте Windows" Margin="10,10,10,10" Grid.ColumnSpan="2">
-                        <DataGrid ItemsSource="{Binding StartupPrograms}"
-AutoGenerateColumns="False"
-IsReadOnly="True"
-ScrollViewer.VerticalScrollBarVisibility="Auto">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Название" Binding="{Binding Name}" Width="2*"/>
-                                <DataGridTextColumn Header="Команда (Путь)" Binding="{Binding Command}" Width="4*"/>
-                                <DataGridTextColumn Header="Расположение" Binding="{Binding Location}" Width="1*"/>
-                                <DataGridTextColumn Header="Пользователь" Binding="{Binding User}" Width="1*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-            <!-- Вкладка 7: Безопасность -->
-            <TabItem Header="Безопасность" Height="32" VerticalAlignment="Top">
-                <Grid Height="639">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <GroupBox Grid.Row="0" Header=" 🛡 ️ Обнаруженный антивирус" Margin="10,10,10,5">
+                    <Border Style="{StaticResource Card}">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Grid Grid.Column="0" Margin="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Антивирус:" FontWeight="Bold" Margin="0,0,5,0"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AntivirusInfo.Name}" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Производитель:" FontWeight="Bold" Margin="10,0,5,0"/>
-                                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding AntivirusInfo.Vendor}"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Статус:" FontWeight="Bold" Margin="0,5,5,0"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AntivirusInfo.Status}" FontWeight="SemiBold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.Status}" Value="Активен">
-                                                    <Setter Property="Foreground" Value="Green"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.Status}" Value="Неактивен">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
+                            <StackPanel>
+                                <TextBlock Text="Антивирус" Style="{StaticResource Label}"/>
+                                <TextBlock Style="{StaticResource Value}">
+                                    <Run Text="{Binding AntivirusInfo.Name, Mode=OneWay}"/>
+                                    <Run Text=" — " Foreground="{StaticResource Muted}"/>
+                                    <Run Text="{Binding AntivirusInfo.Vendor, Mode=OneWay}" Foreground="{StaticResource Muted}"/>
                                 </TextBlock>
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Защита в реальном времени:" FontWeight="Bold" Margin="10,5,5,0"/>
-                                <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AntivirusInfo.RealTimeProtection}" Margin="0,5,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.RealTimeProtection}" Value="Включена">
-                                                    <Setter Property="Foreground" Value="Green"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.RealTimeProtection}" Value="Выключена">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Обновления:" FontWeight="Bold" Margin="0,5,5,0"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AntivirusInfo.IsUpToDate, Converter={StaticResource BoolToTextConverter}, ConverterParameter='Актуальны|Требуются'}" Margin="0,5,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.IsUpToDate}" Value="True">
-                                                    <Setter Property="Foreground" Value="Green"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding AntivirusInfo.IsUpToDate}" Value="False">
-                                                    <Setter Property="Foreground" Value="Orange"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="Последнее обновление:" FontWeight="Bold" Margin="10,5,5,0"/>
-                                <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding AntivirusInfo.LastUpdate, StringFormat='dd.MM.yyyy HH:mm', TargetNullValue='Неизвестно'}" Margin="0,5,0,0"/>
-                            </Grid>
-                            <StackPanel Grid.Column="1" Orientation="Vertical" MinWidth="200" Margin="10">
-                                <Button Content=" 🔄  Обновить статус АВ"
-            Command="{Binding RefreshAntivirusInfoCommand}"
-            Margin="5"
-            Background="#FF17A2B8"/>
-                                <Button Content=" 🚀  Комплексная проверка"
-            Command="{Binding PerformComprehensiveSecurityScanCommand}"
-            IsEnabled="{Binding IsQuickScanInProgress, Converter={StaticResource InverseBooleanConverter}}"
-            Margin="5"
-            Background="#FF28A745"
-            FontWeight="Bold"/>
-
-                                <Button Content=" 🛡 ️ Запустить проверку Защитника"
-            Command="{Binding StartDefenderScanCommand}"
-            IsEnabled="{Binding IsDefenderScanInProgress, Converter={StaticResource InverseBooleanConverter}}"
-            Margin="5"
-            Background="#FF0078D7"
-            Visibility="{Binding AntivirusInfo.Name, ConverterParameter=Defender, Converter={StaticResource ContainsStringVisibilityConverter}}"/>
-
-                                <ProgressBar Height="20" Margin="5"
-            Visibility="{Binding IsQuickScanInProgress, Converter={StaticResource BoolToVisibilityConverter}}"
-            IsIndeterminate="True"/>
+                                <TextBlock Text="Статус" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding AntivirusInfo.Status}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Защита" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding AntivirusInfo.RealTimeProtection}" Style="{StaticResource Value}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Базы" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding AntivirusInfo.IsUpToDate, Converter={StaticResource BoolText}, ConverterParameter='Актуальны|Требуют обновления'}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Сканирование" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding CurrentDefenderStatus.LastScanTime}" Style="{StaticResource Value}"/>
+                                <TextBlock Text="Сигнатуры" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{Binding CurrentDefenderStatus.SignatureVersion}" Style="{StaticResource Value}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" MinWidth="150">
+                                <Button Content="Открыть АВ" Style="{StaticResource BtnPrimary}" Command="{Binding OpenAntivirusCommand}" Margin="0,0,0,4"/>
+                                <Button Content="Защитник Windows" Style="{StaticResource BtnSecondary}" Command="{Binding OpenDefenderSettingsCommand}" Margin="0,0,0,4"/>
+                                <Button Content="Включить защиту" Style="{StaticResource BtnSuccess}" Command="{Binding EnableDefenderProtectionCommand}"/>
                             </StackPanel>
                         </Grid>
-                    </GroupBox>
-                    <GroupBox Grid.Row="1" Header=" 📊  Статус безопасности системы" Margin="10,5,10,5">
-                        <Grid Height="37">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10">
-                                <TextBlock Text="Общий статус:" FontWeight="Bold" Margin="0,0,5,0"/>
-                                <TextBlock Text="{Binding SecurityScanResult.OverallStatus}" FontWeight="Bold" FontSize="14">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SecurityScanResult.OverallStatus}" Value="Защищено">
-                                                    <Setter Property="Foreground" Value="Green"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding SecurityScanResult.OverallStatus}" Value="Требуется внимание">
-                                                    <Setter Property="Foreground" Value="Orange"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding SecurityScanResult.OverallStatus}" Value="Критический риск">
-                                                    <Setter Property="Foreground" Value="Red"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Text=" | " Margin="10,0"/>
-                                <TextBlock Text="Угроз:" FontWeight="Bold" Margin="0,0,5,0"/>
-                                <TextBlock Text="{Binding SecurityScanResult.TotalThreats}" FontWeight="Bold" Foreground="Red"/>
-                                <TextBlock Text=" | " Margin="10,0"/>
-                                <TextBlock Text="Критических:" FontWeight="Bold" Margin="0,0,5,0"/>
-                                <TextBlock Text="{Binding SecurityScanResult.CriticalIssues}" FontWeight="Bold" Foreground="DarkRed"/>
-                                <TextBlock Text=" | " Margin="10,0"/>
-                                <TextBlock Text="Предупреждений:" FontWeight="Bold" Margin="0,0,5,0"/>
-                                <TextBlock Text="{Binding SecurityScanResult.Warnings}" FontWeight="Bold" Foreground="Orange"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding QuickScanStatus}"
-Margin="10" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="Blue"/>
-                        </Grid>
-                    </GroupBox>
-                    <GroupBox Grid.Row="2" Header="🔍 Результаты проверок безопасности" Margin="10,9,10,73" Grid.RowSpan="2">
-                        <Grid Height="156">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5" HorizontalAlignment="Right">
-                                <TextBlock Text="Фильтр:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <RadioButton Content="Все" IsChecked="True" 
-                         Command="{Binding SetSecurityFilterAllCommand}" 
-                         Margin="5,0"/>
-                                <RadioButton Content="Только риски" Foreground="Red" FontWeight="Bold"
-                         Command="{Binding SetSecurityFilterRisksCommand}" 
-                         Margin="5,0"/>
-                                <RadioButton Content="Безопасные" Foreground="Green"
-                         Command="{Binding SetSecurityFilterSafeCommand}" 
-                         Margin="5,0"/>
-                            </StackPanel>
-
-                            <DataGrid 
-                  ItemsSource="{Binding DisplayedSecurityChecks}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  ScrollViewer.VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="0,0,0,-7">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Проверка" Binding="{Binding CheckName}" Width="2*"/>
-                                    <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="1*"/>
-                                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1.5*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsCritical}" Value="True">
-                                                        <Setter Property="Foreground" Value="Red"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Status}" Value="OK">
-                                                        <Setter Property="Foreground" Value="Green"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Status}" Value="ВНИМАНИЕ">
-                                                        <Setter Property="Foreground" Value="Orange"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Детали" Binding="{Binding Details}" Width="3*"/>
-                                    <DataGridTextColumn Header="Рекомендация" Binding="{Binding Recommendation}" Width="2.5*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </GroupBox>
-
-                    <GroupBox Grid.Row="3" Header=" 🚨  Обнаруженные угрозы и уязвимости" Margin="10,65,10,5" Grid.RowSpan="2">
-                        <DataGrid ItemsSource="{Binding SecurityScanResult.Threats}"
-AutoGenerateColumns="False"
-IsReadOnly="True"
-ScrollViewer.VerticalScrollBarVisibility="Auto"
-VirtualizingPanel.IsVirtualizing="True" Height="175">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Угроза" Binding="{Binding Name}" Width="2*"/>
-                                <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="1*"/>
-                                <DataGridTextColumn Header="Важность" Binding="{Binding Severity}" Width="1*">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="HorizontalAlignment" Value="Center"/>
-                                            <Setter Property="FontWeight" Value="Bold"/>
-                                            <Setter Property="Padding" Value="8,4"/>
-
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Severity}" Value="Критическая">
-                                                    <Setter Property="Background" Value="#FFDC3545"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Severity}" Value="Высокая">
-                                                    <Setter Property="Background" Value="#FFFD7E14"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Severity}" Value="Средняя">
-                                                    <Setter Property="Background" Value="#FFFFC107"/>
-                                                    <Setter Property="Foreground" Value="Black"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Severity}" Value="Низкая">
-                                                    <Setter Property="Background" Value="#FF17A2B8"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Header="Описание" Binding="{Binding Description}" Width="3*"/>
-                                <DataGridTextColumn Header="Расположение" Binding="{Binding FilePath}" Width="2*"/>
-                                <DataGridTextColumn Header="Рекомендация" Binding="{Binding Recommendation}" Width="2*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-        </TabControl>
-
-        <!-- Нижний колонтитул с кнопками -->
-        <Border Grid.Row="2" Background="#FFE1E1E1" Padding="10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0"
-                          VerticalAlignment="Center" FontStyle="Italic" Foreground="#FF6C757D">
-                    <Run Text=" v"/>
-                    <Run Language="ru-ru" Text="1"/>
-                    <Run Text=".0 - проект по информационной безопасности"/>
-                </TextBlock>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="📊 Сформировать отчет" Command="{Binding GenerateReportCommand}" Background="#FF17A2B8" Margin="5,0"/>
-                    <Button Content="❓ Справка / О программе" Command="{Binding ShowAboutCommand}"
-                            Background="#FF6C757D" Margin="5,0"/>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Статус: " FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Text="{Binding SecurityScanResult.OverallStatus}" FontWeight="Bold" FontSize="14" Margin="0,0,20,0"/>
+                            <TextBlock FontSize="12">
+                                <Run Text="Угроз: " Foreground="{StaticResource Muted}"/>
+                                <Run Text="{Binding SecurityScanResult.TotalThreats, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource Red}"/>
+                                <Run Text="   Критических: " Foreground="{StaticResource Muted}"/>
+                                <Run Text="{Binding SecurityScanResult.CriticalIssues, Mode=OneWay}" FontWeight="Bold"/>
+                                <Run Text="   Предупреждений: " Foreground="{StaticResource Muted}"/>
+                                <Run Text="{Binding SecurityScanResult.Warnings, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource Orange}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="Проверки" Style="{StaticResource H2}" Margin="0,8,0,4"/>
+                    <DataGrid ItemsSource="{Binding SecurityChecks}" MaxHeight="300" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Проверка" Binding="{Binding CheckName}" Width="1.8*"/>
+                            <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="1*"/>
+                            <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1.3*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource Red}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="OK">
+                                                <Setter Property="Foreground" Value="{StaticResource Green}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Детали" Binding="{Binding Details}" Width="2.5*"/>
+                            <DataGridTextColumn Header="Рекомендация" Binding="{Binding Recommendation}" Width="2*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="Угрозы" Style="{StaticResource H2}" Margin="0,4,0,4"/>
+                    <DataGrid ItemsSource="{Binding Threats}" MaxHeight="200" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Угроза" Binding="{Binding Name}" Width="2*"/>
+                            <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="1*"/>
+                            <DataGridTextColumn Header="Важность" Binding="{Binding Severity}" Width="1*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Критическая">
+                                                <Setter Property="Foreground" Value="{StaticResource Red}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Высокая">
+                                                <Setter Property="Foreground" Value="{StaticResource Orange}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Описание" Binding="{Binding Description}" Width="3*"/>
+                            <DataGridTextColumn Header="Рекомендация" Binding="{Binding Recommendation}" Width="2*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </StackPanel>
+            </ScrollViewer>
+
+            <!-- 6: ПО и автозагрузка -->
+            <Grid Margin="20" Visibility="{Binding SelectedIndex, ElementName=NavList, Converter={StaticResource IndexToVis}, ConverterParameter=6}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*" MaxHeight="250"/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Установленное ПО" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="🔄" Style="{StaticResource BtnPrimary}" Command="{Binding LoadInstalledSoftwareCommand}" ToolTip="Обновить"/>
+                </StackPanel>
+                <DataGrid Grid.Row="1" ItemsSource="{Binding InstalledSoftware}" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Название" Binding="{Binding DisplayName}" Width="3*"/>
+                        <DataGridTextColumn Header="Версия" Binding="{Binding DisplayVersion}" Width="1*"/>
+                        <DataGridTextColumn Header="Издатель" Binding="{Binding Publisher}" Width="2*"/>
+                        <DataGridTextColumn Header="Дата" Binding="{Binding InstallDate}" Width="1*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Автозагрузка" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="🔄" Style="{StaticResource BtnPrimary}" Command="{Binding LoadStartupProgramsCommand}" ToolTip="Обновить"/>
+                    <Button Content="Настройки" Style="{StaticResource BtnSecondary}" Command="{Binding OpenStartupSettingsCommand}"/>
+                </StackPanel>
+                <DataGrid Grid.Row="3" ItemsSource="{Binding StartupPrograms}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Название" Binding="{Binding Name}" Width="2*"/>
+                        <DataGridTextColumn Header="Команда" Binding="{Binding Command}" Width="4*"/>
+                        <DataGridTextColumn Header="Расположение" Binding="{Binding Location}" Width="1.2*"/>
+                        <DataGridTextColumn Header="Пользователь" Binding="{Binding User}" Width="1*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
             </Grid>
-        </Border>
+
+            <!-- 7: Сетевой аудит -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+              Visibility="{Binding SelectedIndex, ElementName=NavList,
+                           Converter={StaticResource IndexToVis}, ConverterParameter=7}">
+                <StackPanel Margin="20">
+                    <TextBlock Text="Сетевой аудит безопасности" Style="{StaticResource H1}"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Диапазон:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox Text="{Binding StartIp, UpdateSourceTrigger=PropertyChanged}"
+                             Width="120" Padding="4,3" Margin="0,0,4,0"/>
+                                <TextBlock Text="—" VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBox Text="{Binding EndIp, UpdateSourceTrigger=PropertyChanged}"
+                             Width="120" Padding="4,3" Margin="4,0,12,0"/>
+                                <Button Content=" Обнаружить хосты" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding DiscoverHostsCommand}"
+                            IsEnabled="{Binding IsNetworkScanning, Converter={StaticResource InvBool}}"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Логин:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox Text="{Binding NetworkUsername, UpdateSourceTrigger=PropertyChanged}"
+                             Width="110" Padding="4,3" Margin="0,0,10,0"/>
+                                <TextBlock Text="Пароль:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox Text="{Binding NetworkPassword, UpdateSourceTrigger=PropertyChanged}"
+                             Width="110" Padding="4,3" Margin="0,0,10,0"/>
+                                <TextBlock Text="Домен:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox Text="{Binding NetworkDomain, UpdateSourceTrigger=PropertyChanged}"
+                             Width="110" Padding="4,3"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="✅Аудит выбранных" Style="{StaticResource BtnSuccess}"
+                            Command="{Binding AuditSelectedHostsCommand}"
+                            IsEnabled="{Binding IsNetworkScanning, Converter={StaticResource InvBool}}"/>
+                                <Button Content="Выбрать все" Style="{StaticResource BtnSecondary}"
+                            Command="{Binding SelectAllHostsCommand}"/>
+                                <Button Content="Снять все" Style="{StaticResource BtnSecondary}"
+                            Command="{Binding DeselectAllHostsCommand}"/>
+                                <Button Content=" Отчёт по сети" Style="{StaticResource BtnSecondary}"
+                            Command="{Binding GenerateNetworkReportCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Статус и счётчики -->
+                    <Border Style="{StaticResource Card}" Padding="12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="{Binding NetworkScanStatus}"
+                        FontWeight="SemiBold"
+                        Foreground="{StaticResource Accent}"
+                        VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                <ProgressBar Width="120" Height="12"
+                        IsIndeterminate="True"
+                        Visibility="{Binding IsNetworkScanning,
+                        Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,24,0">
+                        <Run Text="Хостов: "
+                             Foreground="{StaticResource Muted}"/>
+                        <Run Text="{Binding OnlineHostsCount,
+                             Mode=OneWay}" FontWeight="Bold"/>
+                                </TextBlock>
+                                <TextBlock Margin="0,0,24,0">
+                        <Run Text="Проверено: "
+                             Foreground="{StaticResource Muted}"/>
+                        <Run Text="{Binding AuditedHostsCount,
+                             Mode=OneWay}" FontWeight="Bold"
+                             Foreground="{StaticResource Accent}"/>
+                                </TextBlock>
+                                <TextBlock>
+                        <Run Text="С проблемами: "
+                             Foreground="{StaticResource Muted}"/>
+                        <Run Text="{Binding VulnerableHostsCount,
+                             Mode=OneWay}" FontWeight="Bold"
+                             Foreground="{StaticResource Red}"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ═══════ КАРТА СЕТИ ═══════ -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Карта сети"
+                    Style="{StaticResource H2}"/>
+
+                            <!-- Станция администратора -->
+                            <Border Background="#EFF6FF"
+                    BorderBrush="{StaticResource Accent}"
+                    BorderThickness="2" CornerRadius="10"
+                    Padding="16" HorizontalAlignment="Center"
+                    Margin="0,0,0,4" Width="220">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="🖥️" FontSize="32"
+                            HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Администратор"
+                            FontWeight="Bold" FontSize="13"
+                            HorizontalAlignment="Center"
+                            Foreground="{StaticResource Accent}"/>
+                                    <TextBlock
+                            Text="{Binding SystemInfo.ComputerName}"
+                            HorizontalAlignment="Center"
+                            FontSize="11"
+                            Foreground="{StaticResource Muted}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Линия связи -->
+                            <Border Background="{StaticResource Accent}"
+                    Height="2" Width="200"
+                    HorizontalAlignment="Center" Opacity="0.3"/>
+                            <TextBlock Text="▼" FontSize="14"
+                    HorizontalAlignment="Center"
+                    Foreground="{StaticResource Accent}"
+                    Margin="0,-4,0,-4"/>
+
+                            <!-- Сообщение если хостов нет -->
+                            <TextBlock Text="Выполните сканирование для
+                    отображения карты сети"
+                    HorizontalAlignment="Center"
+                    Margin="0,16"
+                    Foreground="{StaticResource Muted}"
+                    FontSize="13"
+                    Visibility="{Binding NetworkHosts.Count,
+                    Converter={StaticResource IndexToVis},
+                    ConverterParameter=0}"/>
+
+                            <!-- Карточки хостов -->
+                            <ItemsControl
+                    ItemsSource="{Binding NetworkHosts}"
+                    Margin="0,8,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel
+                                HorizontalAlignment="Center"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="155" Margin="6"
+                                CornerRadius="8" Padding="12"
+                                BorderThickness="2" Cursor="Hand">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background"
+                                            Value="#F8FAFC"/>
+                                                    <Setter
+                                            Property="BorderBrush"
+                                            Value="#E2E8F0"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger
+                                                Binding="{Binding
+                                                ScoreCategory}"
+                                                Value="Good">
+                                                            <Setter
+                                                    Property=
+                                                    "BorderBrush"
+                                                    Value="#10B981"/>
+                                                            <Setter
+                                                    Property=
+                                                    "Background"
+                                                    Value="#F0FFF4"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger
+                                                Binding="{Binding
+                                                ScoreCategory}"
+                                                Value="Medium">
+                                                            <Setter
+                                                    Property=
+                                                    "BorderBrush"
+                                                    Value="#F59E0B"/>
+                                                            <Setter
+                                                    Property=
+                                                    "Background"
+                                                    Value="#FFFBEB"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger
+                                                Binding="{Binding
+                                                ScoreCategory}"
+                                                Value="Bad">
+                                                            <Setter
+                                                    Property=
+                                                    "BorderBrush"
+                                                    Value="#EF4444"/>
+                                                            <Setter
+                                                    Property=
+                                                    "Background"
+                                                    Value="#FEF2F2"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger
+                                                Binding="{Binding
+                                                IsScanning}"
+                                                Value="True">
+                                                            <Setter
+                                                    Property=
+                                                    "BorderBrush"
+                                                    Value="#3B82F6"/>
+                                                            <Setter
+                                                    Property=
+                                                    "Background"
+                                                    Value="#EFF6FF"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel
+                                    HorizontalAlignment="Center">
+                                                <TextBlock Text="💻"
+                                        FontSize="24"
+                                        HorizontalAlignment=
+                                        "Center"/>
+                                                <TextBlock
+                                        Text="{Binding IpAddress}"
+                                        FontWeight="Bold"
+                                        FontSize="12"
+                                        HorizontalAlignment=
+                                        "Center"/>
+                                                <TextBlock
+                                        Text="{Binding HostName}"
+                                        FontSize="10"
+                                        HorizontalAlignment=
+                                        "Center"
+                                        TextTrimming=
+                                        "CharacterEllipsis"
+                                        MaxWidth="135"
+                                        Foreground=
+                                        "{StaticResource Muted}"/>
+                                                <TextBlock
+                                        Text="{Binding
+                                        ScoreDisplay}"
+                                        FontSize="22"
+                                        FontWeight="Bold"
+                                        HorizontalAlignment=
+                                        "Center"
+                                        Margin="0,4,0,2">
+                                                    <TextBlock.Style>
+                                                        <Style
+                                                TargetType=
+                                                "TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger
+                                                        Binding=
+                                                        "{Binding
+                                                        ScoreCategory}"
+                                                        Value="Good">
+                                                                    <Setter
+                                                            Property=
+                                                            "Foreground"
+                                                            Value=
+                                                            "#10B981"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger
+                                                        Binding=
+                                                        "{Binding
+                                                        ScoreCategory}"
+                                                        Value=
+                                                        "Medium">
+                                                                    <Setter
+                                                            Property=
+                                                            "Foreground"
+                                                            Value=
+                                                            "#F59E0B"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger
+                                                        Binding=
+                                                        "{Binding
+                                                        ScoreCategory}"
+                                                        Value="Bad">
+                                                                    <Setter
+                                                            Property=
+                                                            "Foreground"
+                                                            Value=
+                                                            "#EF4444"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock
+                                        Text="{Binding Status}"
+                                        FontSize="10"
+                                        HorizontalAlignment=
+                                        "Center"
+                                        Foreground=
+                                        "{StaticResource Muted}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Детальная таблица хостов -->
+                    <DataGrid ItemsSource="{Binding NetworkHosts}"
+            MaxHeight="400"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            IsReadOnly="False" Margin="0,0,0,10">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="✓"
+                    Binding="{Binding IsSelected,
+                    UpdateSourceTrigger=PropertyChanged}"
+                    Width="35"/>
+                            <DataGridTextColumn Header="IP-адрес"
+                    Binding="{Binding IpAddress}" Width="120"
+                    IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Имя хоста"
+                    Binding="{Binding HostName}" Width="1.5*"
+                    IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Статус"
+                    Binding="{Binding Status}" Width="130"
+                    IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight"
+                                Value="SemiBold"/>
+                                        <Style.Triggers>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Good">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Green}"/>
+                                            </DataTrigger>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Medium">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Orange}"/>
+                                            </DataTrigger>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Bad">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Red}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="ОС"
+                    Binding="{Binding OsVersion}" Width="1.5*"
+                    IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Балл"
+                    Binding="{Binding ScoreDisplay}" Width="55"
+                    IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight"
+                                Value="Bold"/>
+                                        <Setter Property="HorizontalAlignment"
+                                Value="Center"/>
+                                        <Style.Triggers>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Good">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Green}"/>
+                                            </DataTrigger>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Medium">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Orange}"/>
+                                            </DataTrigger>
+                                            <DataTrigger
+                                    Binding="{Binding ScoreCategory}"
+                                    Value="Bad">
+                                                <Setter Property="Foreground"
+                                        Value="{StaticResource Red}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Результат"
+                    Binding="{Binding ScanDetails}" Width="2*"
+                    IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsScanning}"
+                            Value="True">
+                                        <Setter Property="Background"
+                                Value="#FFF7ED"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                    </DataGrid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </Window>

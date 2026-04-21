@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace SecurityShield.Models
 {
@@ -15,5 +14,3 @@ namespace SecurityShield.Models
         public string RealTimeProtection { get; set; } = "Выключена";
     }
 }
-
-

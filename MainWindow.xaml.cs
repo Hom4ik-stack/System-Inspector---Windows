@@ -6,8 +6,6 @@ namespace SecurityShield
     {
         public MainWindow()
         {
-            if (System.ComponentModel.DesignerProperties.GetIsInDesignMode(this))
-                return;
             InitializeComponent();
         }
     }

@@ -1,21 +1,22 @@
 ﻿using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 
 namespace SecurityShield.Converters
 {
-    [ValueConversion(typeof(bool), typeof(string))]
-    public class BoolToTextConverter : IValueConverter
+    [ValueConversion(typeof(int), typeof(Visibility))]
+    public class IndexToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool b && parameter is string texts)
+            if (value is int index
+                && parameter is string paramStr
+                && int.TryParse(paramStr, out int target))
             {
-                var parts = texts.Split('|');
-                if (parts.Length == 2)
-                    return b ? parts[0] : parts[1];
+                return index == target ? Visibility.Visible : Visibility.Collapsed;
             }
-            return value?.ToString() ?? string.Empty;
+            return Visibility.Collapsed;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

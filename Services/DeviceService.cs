@@ -4,42 +4,27 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Management;
-using System.Windows;
 
 namespace SecurityShield.Services
 {
     public class DeviceService : IDeviceService, IDisposable
     {
-
         private ManagementEventWatcher? _insertWatcher;
         private ManagementEventWatcher? _removeWatcher;
-
-
         public event EventHandler? DeviceListChanged;
 
         public DeviceService()
         {
-            InitializeDeviceWatchers();
-        }
-
-        private void InitializeDeviceWatchers()
-        {
             try
             {
-                var insertQuery = new WqlEventQuery("SELECT * FROM __InstanceCreationEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'");
-                _insertWatcher = new ManagementEventWatcher(insertQuery);
+                _insertWatcher = new ManagementEventWatcher(new WqlEventQuery("SELECT * FROM __InstanceCreationEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'"));
                 _insertWatcher.EventArrived += (s, e) => DeviceListChanged?.Invoke(this, EventArgs.Empty);
                 _insertWatcher.Start();
-
-                var removeQuery = new WqlEventQuery("SELECT * FROM __InstanceDeletionEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'");
-                _removeWatcher = new ManagementEventWatcher(removeQuery);
+                _removeWatcher = new ManagementEventWatcher(new WqlEventQuery("SELECT * FROM __InstanceDeletionEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'"));
                 _removeWatcher.EventArrived += (s, e) => DeviceListChanged?.Invoke(this, EventArgs.Empty);
                 _removeWatcher.Start();
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка инициализации мониторинга (возможно, нет прав админа): {ex.Message}");
-            }
+            catch (Exception ex) { Debug.WriteLine(ex.Message); }
         }
 
         public List<DeviceInfo> GetConnectedDevices()
@@ -47,261 +32,145 @@ namespace SecurityShield.Services
             var devices = new List<DeviceInfo>();
             try
             {
-
-                // 1. PnP Устройства (включает USB, HID, Камеры, Телефоны)
-                devices.AddRange(GetPnPDevices());
-
-                // 2. Диски (Логические и Физические)
-                devices.AddRange(GetDiskDevices());
-
-                // 3. Сетевые адаптеры
-                devices.AddRange(GetNetworkDevices());
-
-                // Фильтрация дубликатов по DeviceID
-                var uniqueDevices = devices
-                    .GroupBy(d => d.DeviceID)
-                    .Select(g => g.First())
-                    .OrderBy(d => d.Type)
-                    .ThenBy(d => d.Name)
-                    .ToList();
-
-                foreach (var device in uniqueDevices)
-                {
-                    CheckDeviceSafety(device);
-                }
-
-                return uniqueDevices;
+                devices.AddRange(GetPnP());
+                devices.AddRange(GetDisks());
+                devices.AddRange(GetNetAdapters());
+                var unique = devices.GroupBy(d => d.DeviceID).Select(g => g.First()).OrderBy(d => d.Category).ToList();
+                foreach (var d in unique) CheckSafety(d);
+                return unique;
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка получения устройств: {ex.Message}");
-                return new List<DeviceInfo>();
-            }
+            catch { return new List<DeviceInfo>(); }
         }
 
-
-        private List<DeviceInfo> GetPnPDevices()
-        {
-            var list = new List<DeviceInfo>();
-            try
-            {
-                // Берем только "present" устройства, исключаем некоторые системные (ROOT)
-                using (var searcher = new ManagementObjectSearcher(@"SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0"))
-                {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        var deviceId = obj["DeviceID"]?.ToString() ?? "";
-                        var name = obj["Name"]?.ToString() ?? obj["Description"]?.ToString() ?? "Неизвестное устройство";
-                        var pnpClass = obj["PNPClass"]?.ToString() ?? "";
-                        var description = obj["Description"]?.ToString() ?? "";
-
-                        // Фильтр "мусора" (системные шины, драйверы томов и т.д., если они не интересны пользователю)
-                        if (pnpClass == "System" || pnpClass == "Volume" || deviceId.StartsWith(@"SWD\"))
-                            continue;
-
-                        var device = new DeviceInfo
-                        {
-                            Name = name,
-                            DeviceID = deviceId,
-                            Manufacturer = obj["Manufacturer"]?.ToString() ?? "Неизвестно",
-                            Status = obj["Status"]?.ToString() ?? "OK",
-                            Description = description,
-                            DriverVersion = "N/A", // Получение версии драйвера для каждого устройства - дорогая операция, можно опустить для скорости
-                            Type = DetermineDeviceType(deviceId),
-                            Category = DetermineCategory(pnpClass, description, deviceId),
-                            IsRemovable = CheckIfRemovable(description, pnpClass)
-                        };
-
-                        list.Add(device);
-                    }
-                }
-            }
-            catch (Exception ex) { Debug.WriteLine($"Ошибка PnP: {ex.Message}"); }
-            return list;
-        }
-
-        private string DetermineDeviceType(string deviceId)
-        {
-            if (deviceId.StartsWith("USB")) return "Внешнее (USB)";
-            if (deviceId.StartsWith("BTH")) return "Внешнее (Bluetooth)";
-            if (deviceId.StartsWith("PCI")) return "Внутреннее (PCI)";
-            if (deviceId.StartsWith("HDAUDIO")) return "Внутреннее (Audio)";
-            return "Системное/Другое";
-        }
-
-        private string DetermineCategory(string pnpClass, string description, string deviceId)
-        {
-            var descLower = description.ToLower();
-            if (pnpClass == "Image" || descLower.Contains("camera") || descLower.Contains("webcam")) return "Камера/Сканер";
-            if (pnpClass == "Keyboard" || descLower.Contains("keyboard")) return "Клавиатура";
-            if (pnpClass == "Mouse" || descLower.Contains("mouse")) return "Мышь";
-            if (pnpClass == "AudioEndpoint" || pnpClass == "Media") return "Аудио";
-            if (pnpClass == "Net") return "Сеть";
-            if (pnpClass == "DiskDrive" || descLower.Contains("usb device")) return "Накопитель";
-            if (pnpClass == "WPD" || descLower.Contains("phone") || descLower.Contains("android")) return "Мобильное устройство";
-            if (pnpClass == "Bluetooth") return "Bluetooth";
-
-            return pnpClass; // Возвращаем класс как категорию по умолчанию
-        }
-
-        private bool CheckIfRemovable(string description, string pnpClass)
-        {
-            var lower = description.ToLower();
-            return lower.Contains("usb") || lower.Contains("flash") || lower.Contains("removable") || pnpClass == "WPD";
-        }
-
-        // Сохраняем логику для Дисков, но упрощаем
-        private List<DeviceInfo> GetDiskDevices()
-        {
-            var disks = new List<DeviceInfo>();
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
-                {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        var mediaType = obj["MediaType"]?.ToString() ?? "";
-                        disks.Add(new DeviceInfo
-                        {
-                            Name = obj["Caption"]?.ToString() ?? "Диск",
-                            Type = "Накопитель",
-                            Category = "Диск",
-                            Status = obj["Status"]?.ToString() ?? "OK",
-                            Manufacturer = obj["Manufacturer"]?.ToString() ?? "Generic",
-                            DeviceID = obj["DeviceID"]?.ToString() ?? "",
-                            Size = obj["Size"] != null ? Convert.ToUInt64(obj["Size"]) : 0,
-                            IsRemovable = mediaType.ToLower().Contains("removable") || mediaType.ToLower().Contains("external")
-                        });
-                    }
-                }
-            }
-            catch { }
-            return disks;
-        }
-        public bool CheckDeviceSafety(DeviceInfo device)
-        {
-            if (device == null) return false;
-
-            device.IsSafe = true;
-            device.VulnerabilityStatus = "Без уязвимостей";
-            var warnings = new List<string>();
-
-          
-            if (device.Status.ToUpper() == "ERROR" || device.Status.ToUpper() == "DEGRADED")
-            {
-                device.IsSafe = false;
-                device.VulnerabilityStatus = "Сбой устройства";
-                warnings.Add("Устройство сообщает об ошибке.");
-            }
-
-            if (device.Category == "Накопитель" && device.IsRemovable)
-            {
-                // Съемные диски всегда потенциально опасны
-                device.IsSafe = false;
-                device.VulnerabilityStatus = "Требуется сканирование";
-                warnings.Add("Съемный носитель. Проверьте антивирусом.");
-            }
-
-            if (device.Category == "Клавиатура" && device.Type.Contains("USB") && device.Name.Contains("HID"))
-            {
-                // BadUSB атаки часто маскируются под клавиатуры
-                // Это параноидальная проверка, но для Security Shield подходит
-                device.VulnerabilityStatus = "Проверка BadUSB";
-                // Мы не ставим IsSafe = false, но даем инфо
-            }
-
-            if (warnings.Any())
-            {
-                device.SafetyWarning = string.Join(" ", warnings);
-            }
-            else
-            {
-                device.SafetyWarning = "";
-            }
-
-            return device.IsSafe;
-        }
         public void EjectDevice(string deviceId)
         {
             try
             {
-                if (deviceId.ToLower().Contains("usb"))
+                Process.Start(new ProcessStartInfo
                 {
-                    using (var searcher = new ManagementObjectSearcher(
-                        $"SELECT * FROM Win32_USBHub WHERE DeviceID = '{deviceId.Replace("\\", "\\\\")}'"))
-                    {
-                        foreach (ManagementObject obj in searcher.Get())
-                        {
-                            obj.InvokeMethod("RemoveDevice", null);
-                            break;
-                        }
-                    }
-                }
+                    FileName = "rundll32.exe",
+                    Arguments = "shell32.dll,Control_RunDLL hotplug.dll",
+                    UseShellExecute = true
+                });
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Не удалось извлечь устройство: {ex.Message}");
-            }
+            catch (Exception ex) { throw new InvalidOperationException(ex.Message); }
         }
 
         public void OpenDeviceSettings(string deviceId)
         {
-            try
-            {
-                
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "mmc.exe",
-                    Arguments = "devmgmt.msc",
-                    UseShellExecute = true,
-                    Verb = "runas"
-                });
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Не удалось открыть настройки устройства: {ex.Message}");
-            }
-
+            try { Process.Start(new ProcessStartInfo { FileName = "mmc.exe", Arguments = "devmgmt.msc", UseShellExecute = true, Verb = "runas" }); }
+            catch (Exception ex) { throw new InvalidOperationException(ex.Message); }
         }
+
         public void Dispose()
         {
-            _insertWatcher?.Stop();
-            _insertWatcher?.Dispose();
-            _removeWatcher?.Stop();
-            _removeWatcher?.Dispose();
+            try { _insertWatcher?.Stop(); _insertWatcher?.Dispose(); } catch { }
+            try { _removeWatcher?.Stop(); _removeWatcher?.Dispose(); } catch { }
         }
 
-
-
-        private List<DeviceInfo> GetNetworkDevices()
+        private List<DeviceInfo> GetPnP()
         {
-            var networkDevices = new List<DeviceInfo>();
+            var list = new List<DeviceInfo>();
             try
             {
-                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_NetworkAdapter WHERE PhysicalAdapter = TRUE"))
+                using var s = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0");
+                foreach (ManagementObject o in s.Get())
                 {
-                    foreach (ManagementObject obj in searcher.Get())
+                    var id = o["DeviceID"]?.ToString() ?? "";
+                    var cls = o["PNPClass"]?.ToString() ?? "";
+                    if (cls == "System" || cls == "Volume" || cls == "LegacyDriver" || id.StartsWith(@"SWD\")) continue;
+                    var desc = o["Description"]?.ToString() ?? "";
+                    list.Add(new DeviceInfo
                     {
-                        var device = new DeviceInfo
-                        {
-                            Name = obj["Name"]?.ToString() ?? "Сетевой адаптер",
-                            Type = "Внутреннее",
-                            Category = "Сеть",
-                            Status = obj["NetEnabled"]?.ToString() == "True" ? "Включен" : "Выключен",
-                            Manufacturer = obj["Manufacturer"]?.ToString() ?? "Unknown",
-                            DeviceID = obj["DeviceID"]?.ToString() ?? "",
-                            Description = obj["Description"]?.ToString() ?? "",
-                            DriverVersion = obj["DriverVersion"]?.ToString() ?? "Unknown"
-                        };
-                        networkDevices.Add(device);
-                    }
+                        Name = o["Name"]?.ToString() ?? desc,
+                        DeviceID = id,
+                        Manufacturer = o["Manufacturer"]?.ToString() ?? "Неизвестно",
+                        Status = o["Status"]?.ToString() ?? "OK",
+                        Description = desc,
+                        Type = id.StartsWith("USB") ? "USB" : id.StartsWith("PCI") ? "PCI" : id.StartsWith("BTH") ? "Bluetooth" : "Другое",
+                        Category = MapCategory(cls, desc),
+                        IsRemovable = desc.ToLower().Contains("usb") || cls == "WPD"
+                    });
                 }
             }
-            catch (Exception ex)
+            catch { }
+            return list;
+        }
+
+        private List<DeviceInfo> GetDisks()
+        {
+            var list = new List<DeviceInfo>();
+            try
             {
-                Debug.WriteLine($"Ошибка получения сетевых устройств: {ex.Message}");
+                using var s = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
+                foreach (ManagementObject o in s.Get())
+                {
+                    var mt = o["MediaType"]?.ToString() ?? "";
+                    var iface = o["InterfaceType"]?.ToString() ?? "";
+                    list.Add(new DeviceInfo
+                    {
+                        Name = o["Caption"]?.ToString() ?? "Диск",
+                        Type = "Накопитель",
+                        Category = "Диск",
+                        Status = o["Status"]?.ToString() ?? "OK",
+                        Manufacturer = o["Manufacturer"]?.ToString() ?? "Generic",
+                        DeviceID = o["DeviceID"]?.ToString() ?? "",
+                        IsRemovable = mt.ToLower().Contains("removable") || iface.Equals("USB", StringComparison.OrdinalIgnoreCase)
+                    });
+                }
             }
-            return networkDevices;
+            catch { }
+            return list;
+        }
+
+        private List<DeviceInfo> GetNetAdapters()
+        {
+            var list = new List<DeviceInfo>();
+            try
+            {
+                using var s = new ManagementObjectSearcher("SELECT * FROM Win32_NetworkAdapter WHERE PhysicalAdapter = TRUE");
+                foreach (ManagementObject o in s.Get())
+                    list.Add(new DeviceInfo
+                    {
+                        Name = o["Name"]?.ToString() ?? "Сетевой адаптер",
+                        Type = "Сеть",
+                        Category = "Сеть",
+                        Status = o["NetEnabled"]?.ToString() == "True" ? "Включен" : "Выключен",
+                        Manufacturer = o["Manufacturer"]?.ToString() ?? "Unknown",
+                        DeviceID = o["DeviceID"]?.ToString() ?? ""
+                    });
+            }
+            catch { }
+            return list;
+        }
+
+        private string MapCategory(string cls, string desc)
+        {
+            var d = desc.ToLower();
+            if (cls == "Image" || d.Contains("camera")) return "Камера";
+            if (cls == "Keyboard") return "Клавиатура";
+            if (cls == "Mouse") return "Мышь";
+            if (cls == "AudioEndpoint" || cls == "Media") return "Аудио";
+            if (cls == "Net") return "Сеть";
+            if (cls == "DiskDrive") return "Накопитель";
+            if (cls == "Display") return "Видеокарта";
+            if (cls == "Monitor") return "Монитор";
+            if (cls == "Printer") return "Принтер";
+            if (cls == "Bluetooth") return "Bluetooth";
+            if (cls == "WPD") return "Мобильное";
+            return string.IsNullOrEmpty(cls) ? "Другое" : cls;
+        }
+
+        private void CheckSafety(DeviceInfo d)
+        {
+            d.IsSafe = true;
+            d.VulnerabilityStatus = "OK";
+            var w = new List<string>();
+            if (d.Status.Equals("ERROR", StringComparison.OrdinalIgnoreCase))
+            { d.IsSafe = false; d.VulnerabilityStatus = "Сбой"; w.Add("Ошибка устройства."); }
+            if (d.Category == "Накопитель" && d.IsRemovable)
+            { d.IsSafe = false; d.VulnerabilityStatus = "Проверьте"; w.Add("Съёмный носитель."); }
+            d.SafetyWarning = string.Join(" ", w);
         }
     }
 }
